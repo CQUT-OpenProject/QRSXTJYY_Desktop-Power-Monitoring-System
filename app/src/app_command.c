@@ -9,10 +9,14 @@
 
 #define APP_COMMAND_INPUT_MAX 64U
 
+/*
+ * LCD 菜单和串口命令都会改自动上报开关，所以这里只保存一份。
+ */
 static uint8_t s_auto_report_enabled = 1U;
 
 static char upper_char(char c)
 {
+    /* 命令只用 ASCII 字符，手写大小写转换就够了。 */
     if (c >= 'a' && c <= 'z') {
         return (char)(c - ('a' - 'A'));
     }
@@ -28,6 +32,9 @@ static void trim_trailing_space(char *text)
 {
     uint8_t len = 0U;
 
+    /*
+     * 先找字符串末尾，再删掉尾部空白。长度上限可以防止坏输入一路读出去。
+     */
     while (text[len] != '\0' && len < (APP_COMMAND_INPUT_MAX - 1U)) {
         len++;
     }
@@ -41,6 +48,10 @@ static void normalize_command_line(char *cmd)
 {
     uint8_t len;
 
+    /*
+     * 有些串口工具会把回车换行发成可见的 "\r"、"\n" 字符。
+     * 收到这种尾巴时也删掉，串口调试会省事一些。
+     */
     trim_trailing_space(cmd);
     while (1) {
         len = 0U;
@@ -87,10 +98,15 @@ static uint8_t parse_uint(const char *text, uint32_t *value)
     uint32_t result = 0U;
     uint8_t digits = 0U;
 
+    /* 命令数字前后允许有空格，例如 "PWM SET   50"。 */
     while (is_ascii_space(*text) != 0U) {
         text++;
     }
 
+    /*
+     * 逐字符把十进制文本转成整数。当前命令没有负数和小数，
+     * 遇到这类字符就报 BAD_VALUE。
+     */
     while (*text >= '0' && *text <= '9') {
         result = (result * 10U) + (uint32_t)(*text - '0');
         digits = 1U;
@@ -113,6 +129,9 @@ static void clear_result(app_command_result_t *result)
 {
     uint8_t i;
 
+    /*
+     * 每次处理命令前先清空 result，免得上一条命令的响应残留下来。
+     */
     result->monitor_changed = 0U;
     result->response_count = 0U;
     for (i = 0U; i < APP_COMMAND_RESPONSE_MAX; i++) {
@@ -124,6 +143,9 @@ static void add_response(app_command_result_t *result, const char *format, ...)
 {
     va_list args;
 
+    /*
+     * HELP 会返回多行。响应数组满了就不再写，避免越界。
+     */
     if (result->response_count >= APP_COMMAND_RESPONSE_MAX) {
         return;
     }
@@ -150,6 +172,9 @@ static void add_status(app_command_result_t *result)
 {
     app_monitor_state_t state;
 
+    /*
+     * STATUS? 读取同一份监控快照，LCD 和串口看到的数据就能对上。
+     */
     app_monitor_state_read(&state);
     app_command_format_status(&state,
                               result->responses[result->response_count],
@@ -162,6 +187,7 @@ static void handle_pwm_set(const char *cmd, app_command_result_t *result)
 {
     uint32_t value;
 
+    /* PWM SET 后面必须是一个完整整数，解析失败就返回 BAD_VALUE。 */
     if (parse_uint(cmd + (sizeof("PWM SET ") - 1U), &value) == 0U) {
         add_response(result, "ERR BAD_VALUE");
         return;
@@ -174,12 +200,20 @@ static void handle_pwm_set(const char *cmd, app_command_result_t *result)
 
 static void handle_dac_mode(const char *mode, app_command_result_t *result)
 {
+    app_dac_config_t config;
+
+    /*
+     * 改 DAC 的一个字段时，先取出当前配置，再改目标字段，最后整份写回。
+     */
+    app_dac_get_config(&config);
     if (equals_ci(mode, "SINGLE") != 0U) {
-        app_dac_set_mode(APP_DAC_MODE_SINGLE);
+        config.mode = APP_DAC_MODE_SINGLE;
+        app_dac_apply_config(&config);
         result->monitor_changed = 1U;
         add_response(result, "OK DAC MODE=SINGLE");
     } else if (equals_ci(mode, "DUAL") != 0U) {
-        app_dac_set_mode(APP_DAC_MODE_DUAL);
+        config.mode = APP_DAC_MODE_DUAL;
+        app_dac_apply_config(&config);
         result->monitor_changed = 1U;
         add_response(result, "OK DAC MODE=DUAL");
     } else {
@@ -191,6 +225,7 @@ static void handle_dac_number(const char *value_text,
                               app_command_result_t *result,
                               uint8_t field)
 {
+    app_dac_config_t config;
     uint32_t value;
 
     if (parse_uint(value_text, &value) == 0U) {
@@ -198,16 +233,26 @@ static void handle_dac_number(const char *value_text,
         return;
     }
 
+    app_dac_get_config(&config);
     result->monitor_changed = 1U;
     if (field == 0U) {
-        app_dac_set_frequency(value);
-        add_response(result, "OK DAC FREQ=%luHz", (unsigned long)app_dac_get_frequency());
+        /* field=0 表示修改频率。超范围值会在 app_dac_apply_config 里夹住。 */
+        config.frequency_hz = value;
+        app_dac_apply_config(&config);
+        app_dac_get_config(&config);
+        add_response(result, "OK DAC FREQ=%luHz", (unsigned long)config.frequency_hz);
     } else if (field == 1U) {
-        app_dac_set_amplitude((uint16_t)value);
-        add_response(result, "OK DAC AMP=%u", app_dac_get_amplitude());
+        /* field=1 表示修改幅度。过大的幅度会被限制到安全码值。 */
+        config.amplitude = (uint16_t)value;
+        app_dac_apply_config(&config);
+        app_dac_get_config(&config);
+        add_response(result, "OK DAC AMP=%u", config.amplitude);
     } else {
-        app_dac_set_phase((uint16_t)value);
-        add_response(result, "OK DAC PHASE=%u", app_dac_get_phase());
+        /* 只剩 DAC SET PHASE 会走到这里，单位是度。 */
+        config.phase_degrees = (uint16_t)value;
+        app_dac_apply_config(&config);
+        app_dac_get_config(&config);
+        add_response(result, "OK DAC PHASE=%u", config.phase_degrees);
     }
 }
 
@@ -221,6 +266,7 @@ void app_command_handle_line(const char *line, app_command_result_t *result)
     char cmd[APP_COMMAND_INPUT_MAX];
     uint8_t i;
 
+    /* result 是输出参数，不能为空。line 为空时返回 BAD_COMMAND。 */
     if (result == 0) {
         return;
     }
@@ -232,12 +278,19 @@ void app_command_handle_line(const char *line, app_command_result_t *result)
         return;
     }
 
+    /*
+     * 先把输入复制到局部数组，再做裁剪和大小写匹配。
+     * normalize_command_line 后面只改这份副本，不碰中断缓冲区或只读字符串。
+     */
     for (i = 0U; i < (APP_COMMAND_INPUT_MAX - 1U) && line[i] != '\0'; i++) {
         cmd[i] = line[i];
     }
     cmd[i] = '\0';
     normalize_command_line(cmd);
 
+    /*
+     * 先匹配完整命令，再匹配带参数的命令前缀。
+     */
     if (equals_ci(cmd, "HELP") != 0U) {
         add_help(result);
     } else if (equals_ci(cmd, "STATUS?") != 0U) {
@@ -283,6 +336,9 @@ void app_command_format_status(const app_monitor_state_t *state,
                                char *line,
                                uint16_t line_size)
 {
+    /*
+     * STATUS 行比较长，用 snprintf 写，避免超过调用者给的缓冲区。
+     */
     if (line == 0 || line_size == 0U) {
         return;
     }
@@ -299,9 +355,9 @@ void app_command_format_status(const app_monitor_state_t *state,
              (unsigned long)(state->mains_frequency.frequency_x100 % 100U),
              (unsigned long)state->pwm_output.frequency_hz,
              s_auto_report_enabled != 0U ? "ON" : "OFF",
-             state->dac_output.dual_output_enabled != 0U ? "DUAL" : "SINGLE",
-             (unsigned long)state->dac_output.frequency_hz,
-             state->dac_output.amplitude,
-             state->dac_output.phase_degrees);
+             state->dac_output.config.mode == APP_DAC_MODE_DUAL ? "DUAL" : "SINGLE",
+             (unsigned long)state->dac_output.config.frequency_hz,
+             state->dac_output.config.amplitude,
+             state->dac_output.config.phase_degrees);
     line[line_size - 1U] = '\0';
 }

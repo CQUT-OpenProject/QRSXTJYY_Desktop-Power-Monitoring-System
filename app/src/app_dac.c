@@ -7,7 +7,6 @@
 #include "stm32f10x_tim.h"
 
 #define APP_DAC_TIMER_CLOCK_HZ 72000000U
-#define APP_DAC_TABLE_SIZE 128U
 #define APP_DAC_DEFAULT_HZ 100U
 #define APP_DAC_MIN_HZ 1U
 #define APP_DAC_MAX_HZ 1000U
@@ -15,7 +14,11 @@
 #define APP_DAC_MAX_AMP 2047U
 #define APP_DAC_MID_CODE 2048U
 
-static const uint16_t s_sine_fullscale[APP_DAC_TABLE_SIZE] = {
+/*
+ * 一整周期 128 点的满幅正弦表，数值范围是 0..4095。
+ * 后面按用户设置的 amplitude 缩放，不在运行时计算 sin()。
+ */
+static const uint16_t s_sine_fullscale[APP_DAC_WAVEFORM_SAMPLES] = {
     2048U, 2148U, 2249U, 2348U, 2447U, 2545U, 2642U, 2738U,
     2831U, 2923U, 3013U, 3100U, 3185U, 3267U, 3347U, 3423U,
     3495U, 3565U, 3630U, 3692U, 3750U, 3804U, 3853U, 3898U,
@@ -34,15 +37,23 @@ static const uint16_t s_sine_fullscale[APP_DAC_TABLE_SIZE] = {
     1265U, 1358U, 1454U, 1551U, 1649U, 1748U, 1847U, 1948U
 };
 
-static uint16_t s_dac_ch1[APP_DAC_TABLE_SIZE];
-static uint16_t s_dac_ch2[APP_DAC_TABLE_SIZE];
-static app_dac_mode_t s_mode = APP_DAC_MODE_SINGLE;
-static uint32_t s_frequency_hz = APP_DAC_DEFAULT_HZ;
-static uint16_t s_amplitude = APP_DAC_DEFAULT_AMP;
-static uint16_t s_phase_degrees;
+static uint16_t s_dac_ch1[APP_DAC_WAVEFORM_SAMPLES];
+static uint16_t s_dac_ch2[APP_DAC_WAVEFORM_SAMPLES];
+
+/*
+ * 当前 DAC 输出配置。外部一次写入整份配置，不用分别猜每个字段会不会重建
+ * 波形、DMA 或定时器。
+ */
+static app_dac_config_t s_config = {
+    APP_DAC_MODE_SINGLE,
+    APP_DAC_DEFAULT_HZ,
+    APP_DAC_DEFAULT_AMP,
+    0U
+};
 
 static uint32_t clamp_frequency(uint32_t hz)
 {
+    /* DAC 波形频率太高时，采样率也会太高，TIM6 可能算不出合适参数。 */
     if (hz < APP_DAC_MIN_HZ) {
         return APP_DAC_MIN_HZ;
     }
@@ -59,6 +70,10 @@ static uint16_t clamp_amplitude(uint16_t code)
 
 static uint16_t scale_sample(uint16_t raw, uint16_t amplitude)
 {
+    /*
+     * raw 以 2048 为中心上下摆动。先转成正负偏移量，按 amplitude 缩放，
+     * 再加回 2048，得到新的 DAC 码值。
+     */
     int32_t signed_sample = (int32_t)raw - (int32_t)APP_DAC_MID_CODE;
     int32_t scaled = (int32_t)APP_DAC_MID_CODE +
                      ((signed_sample * (int32_t)amplitude) / (int32_t)APP_DAC_MAX_AMP);
@@ -75,13 +90,18 @@ static uint16_t scale_sample(uint16_t raw, uint16_t amplitude)
 static void rebuild_buffers(void)
 {
     uint16_t i;
-    uint16_t phase_index = (uint16_t)(((uint32_t)s_phase_degrees * APP_DAC_TABLE_SIZE) / 360U);
+    uint16_t phase_index =
+        (uint16_t)(((uint32_t)s_config.phase_degrees * APP_DAC_WAVEFORM_SAMPLES) / 360U);
 
-    for (i = 0U; i < APP_DAC_TABLE_SIZE; i++) {
-        s_dac_ch1[i] = scale_sample(s_sine_fullscale[i], s_amplitude);
-        if (s_mode == APP_DAC_MODE_DUAL) {
-            uint16_t j = (uint16_t)((i + phase_index) % APP_DAC_TABLE_SIZE);
-            s_dac_ch2[i] = scale_sample(s_sine_fullscale[j], s_amplitude);
+    /*
+     * CH1 始终输出正弦波；CH2 在 DUAL 模式下输出带相位偏移的正弦波，
+     * 在 SINGLE 模式下保持 2048，也就是 DAC 中点电压。
+     */
+    for (i = 0U; i < APP_DAC_WAVEFORM_SAMPLES; i++) {
+        s_dac_ch1[i] = scale_sample(s_sine_fullscale[i], s_config.amplitude);
+        if (s_config.mode == APP_DAC_MODE_DUAL) {
+            uint16_t j = (uint16_t)((i + phase_index) % APP_DAC_WAVEFORM_SAMPLES);
+            s_dac_ch2[i] = scale_sample(s_sine_fullscale[j], s_config.amplitude);
         } else {
             s_dac_ch2[i] = APP_DAC_MID_CODE;
         }
@@ -90,6 +110,10 @@ static void rebuild_buffers(void)
 
 static void calc_timer_params(uint32_t sample_rate_hz, uint16_t *psc, uint16_t *arr)
 {
+    /*
+     * TIM6 每次 Update 触发 DMA 写一个 DAC 采样点。
+     * 所以采样率 = 波形频率 * 每周期采样点数。
+     */
     uint32_t target_ticks = (APP_DAC_TIMER_CLOCK_HZ + (sample_rate_hz / 2U)) / sample_rate_hz;
     uint32_t prescaler = (target_ticks + 65535U) / 65536U;
     uint32_t period;
@@ -117,12 +141,16 @@ static void configure_dma(void)
 {
     DMA_InitTypeDef dma;
 
+    /*
+     * DMA2_Channel3 对应 DAC 通道 1。Circular 模式会反复播放 s_dac_ch1，
+     * CPU 不需要在主循环里一个点一个点写 DAC。
+     */
     DMA_DeInit(DMA2_Channel3);
     DMA_StructInit(&dma);
     dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12R1;
     dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_ch1;
     dma.DMA_DIR = DMA_DIR_PeripheralDST;
-    dma.DMA_BufferSize = APP_DAC_TABLE_SIZE;
+    dma.DMA_BufferSize = APP_DAC_WAVEFORM_SAMPLES;
     dma.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
     dma.DMA_MemoryInc = DMA_MemoryInc_Enable;
     dma.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
@@ -132,6 +160,7 @@ static void configure_dma(void)
     dma.DMA_M2M = DMA_M2M_Disable;
     DMA_Init(DMA2_Channel3, &dma);
 
+    /* DAC 通道 2 用 DMA2_Channel4，配置基本相同，只换寄存器和波形表。 */
     DMA_DeInit(DMA2_Channel4);
     dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12R2;
     dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_ch2;
@@ -142,12 +171,16 @@ static void apply_output_config(void)
 {
     uint16_t psc;
     uint16_t arr;
-    uint32_t sample_rate_hz = s_frequency_hz * APP_DAC_TABLE_SIZE;
+    uint32_t sample_rate_hz = s_config.frequency_hz * APP_DAC_WAVEFORM_SAMPLES;
 
+    /*
+     * 改波形参数前先停 TIM6 和 DMA，防止 DMA 一边读表，一边表被改写。
+     */
     TIM_Cmd(TIM6, DISABLE);
     DMA_Cmd(DMA2_Channel3, DISABLE);
     DMA_Cmd(DMA2_Channel4, DISABLE);
 
+    /* 先重建两路波形表，再设置 DMA 和 TIM6 触发频率。 */
     rebuild_buffers();
     configure_dma();
     calc_timer_params(sample_rate_hz, &psc, &arr);
@@ -167,6 +200,7 @@ void app_dac_init(void)
     DAC_InitTypeDef dac;
     TIM_TimeBaseInitTypeDef time_base;
 
+    /* PA4/PA5 是 STM32F103 的 DAC_OUT1/DAC_OUT2，引脚必须配置成模拟输入模式。 */
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_DAC | RCC_APB1Periph_TIM6, ENABLE);
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA2, ENABLE);
@@ -180,6 +214,10 @@ void app_dac_init(void)
     time_base.TIM_CounterMode = TIM_CounterMode_Up;
     time_base.TIM_ClockDivision = TIM_CKD_DIV1;
     TIM_TimeBaseInit(TIM6, &time_base);
+    /*
+     * TIM6 Update 事件作为 DAC 触发源：定时器每到一个采样周期，
+     * DAC 就从 DMA 收到下一个采样点。
+     */
     TIM_SelectOutputTrigger(TIM6, TIM_TRGOSource_Update);
 
     DAC_StructInit(&dac);
@@ -192,66 +230,66 @@ void app_dac_init(void)
 
     DAC_Cmd(DAC_Channel_1, ENABLE);
     DAC_Cmd(DAC_Channel_2, ENABLE);
+    /* 打开 DAC 的 DMA 请求，后续 TIM6 触发时 DMA 才会自动搬运数据。 */
     DAC_DMACmd(DAC_Channel_1, ENABLE);
     DAC_DMACmd(DAC_Channel_2, ENABLE);
 
     apply_output_config();
 }
 
-void app_dac_set_mode(app_dac_mode_t mode)
+static app_dac_config_t normalized_config(const app_dac_config_t *config)
 {
-    s_mode = mode == APP_DAC_MODE_DUAL ? APP_DAC_MODE_DUAL : APP_DAC_MODE_SINGLE;
-    apply_output_config();
-}
+    app_dac_config_t normalized = s_config;
 
-void app_dac_set_frequency(uint32_t hz)
-{
-    s_frequency_hz = clamp_frequency(hz);
-    apply_output_config();
-}
-
-void app_dac_set_amplitude(uint16_t code)
-{
-    s_amplitude = clamp_amplitude(code);
-    apply_output_config();
-}
-
-void app_dac_set_phase(uint16_t degrees)
-{
-    s_phase_degrees = (uint16_t)(degrees % 360U);
-    apply_output_config();
-}
-
-app_dac_mode_t app_dac_get_mode(void)
-{
-    return s_mode;
-}
-
-uint32_t app_dac_get_frequency(void)
-{
-    return s_frequency_hz;
-}
-
-uint16_t app_dac_get_amplitude(void)
-{
-    return s_amplitude;
-}
-
-uint16_t app_dac_get_phase(void)
-{
-    return s_phase_degrees;
-}
-
-uint16_t app_dac_get_sample(uint8_t channel, uint16_t index)
-{
-    index = (uint16_t)(index % APP_DAC_TABLE_SIZE);
-    if (channel == 2U) {
-        return s_dac_ch2[index];
+    if (config != 0) {
+        normalized = *config;
     }
-    return s_dac_ch1[index];
+
+    /*
+     * 外部传入的配置先整理一遍：非法 mode 回到 SINGLE，数值限制到本模块
+     * 能处理的范围。
+     */
+    normalized.mode =
+        normalized.mode == APP_DAC_MODE_DUAL ? APP_DAC_MODE_DUAL : APP_DAC_MODE_SINGLE;
+    normalized.frequency_hz = clamp_frequency(normalized.frequency_hz);
+    normalized.amplitude = clamp_amplitude(normalized.amplitude);
+    normalized.phase_degrees = (uint16_t)(normalized.phase_degrees % 360U);
+    return normalized;
 }
 
-uint16_t app_dac_get_table_size(void)
+void app_dac_get_config(app_dac_config_t *config)
 {
-    return APP_DAC_TABLE_SIZE;
+    if (config != 0) {
+        *config = s_config;
+    }
+}
+
+void app_dac_apply_config(const app_dac_config_t *config)
+{
+    if (config == 0) {
+        return;
+    }
+
+    s_config = normalized_config(config);
+    apply_output_config();
+}
+
+void app_dac_read_output(app_dac_output_t *output)
+{
+    uint16_t i;
+
+    if (output == 0) {
+        return;
+    }
+
+    /*
+     * 这里复制一份波形表给调用者。调用者改不到 DMA 正在播放的
+     * s_dac_ch1/s_dac_ch2。
+     */
+    output->config = s_config;
+    output->waveform_sample_count = APP_DAC_WAVEFORM_SAMPLES;
+    for (i = 0U; i < APP_DAC_WAVEFORM_SAMPLES; i++) {
+        output->waveform_ch1[i] = s_dac_ch1[i];
+        output->waveform_ch2[i] = s_dac_ch2[i];
+    }
 }
