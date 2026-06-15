@@ -37,7 +37,7 @@ python3 -m pip install --user pyserial stm32loader
 cargo install --force cbindgen
 ```
 
-## 构建固件
+## 构建与烧录
 
 配置并构建 Debug 版本：
 
@@ -57,6 +57,35 @@ build/Debug/desktop_power_monitor.elf
 ```sh
 arm-none-eabi-objcopy -O binary \
   build/Debug/desktop_power_monitor.elf \
+  build/Debug/desktop_power_monitor.bin
+```
+
+## 使用 ST-Link 烧录
+
+连接 ST-Link 后执行：
+
+```sh
+openocd -f tools/openocd/stm32f103rct6.cfg \
+  -c "program build/Debug/desktop_power_monitor.elf verify reset exit"
+```
+
+### 使用串口烧录
+
+查看当前串口设备：
+
+```sh
+python3 -m serial.tools.list_ports -v
+```
+
+烧录命令示例：
+
+```sh
+/Users/uednd/Library/Python/3.9/bin/stm32loader \
+  -p /dev/tty.usbserial-110 \
+  -b 115200 \
+  -f F1 \
+  -e -w -v \
+  -g 0x08000000 \
   build/Debug/desktop_power_monitor.bin
 ```
 
@@ -103,32 +132,3 @@ cbindgen --config cbindgen.toml --crate rust_algos --output include/rust_algos.h
 2. 为该函数添加 Rust 文档注释，`cbindgen` 会把注释同步到 C 头文件。
 3. 运行 CMake 构建或手动运行 `cbindgen` 生成 `rust_algos.h`。
 4. 在 C 代码中包含 `rust_algos.h` 并调用新接口。
-
-## ST-Link 烧录
-
-连接 ST-Link 后执行：
-
-```sh
-openocd -f tools/openocd/stm32f103rct6.cfg \
-  -c "program build/Debug/desktop_power_monitor.elf verify reset exit"
-```
-
-## 串口烧录
-
-查看当前串口设备：
-
-```sh
-python3 -m serial.tools.list_ports -v
-```
-
-烧录命令示例：
-
-```sh
-/Users/uednd/Library/Python/3.9/bin/stm32loader \
-  -p /dev/tty.usbserial-310 \
-  -b 115200 \
-  -f F1 \
-  -e -w -v \
-  -g 0x08000000 \
-  build/Debug/desktop_power_monitor.bin
-```
