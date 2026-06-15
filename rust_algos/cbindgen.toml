@@ -1,0 +1,11 @@
+language = "C"
+include_guard = "RUST_ALGOS_H"
+autogen_warning = "/* 本文件由 cbindgen 根据 rust_algos/src/lib.rs 自动生成，请勿手工修改。 */"
+include_version = false
+cpp_compat = true
+documentation = true
+documentation_style = "doxy"
+documentation_length = "full"
+line_endings = "LF"
+no_includes = true
+after_includes = "#include <stdint.h>"

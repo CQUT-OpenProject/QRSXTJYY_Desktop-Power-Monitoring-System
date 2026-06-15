@@ -1,0 +1,9 @@
+{
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/Debug/compile_commands.json",
+    "rust-analyzer.linkedProjects": [
+        "${workspaceFolder}/rust_algos/Cargo.toml"
+    ],
+    "rust-analyzer.cargo.target": "thumbv7m-none-eabi",
+    "rust-analyzer.cargo.allTargets": false,
+    "rust-analyzer.check.allTargets": false
+}
