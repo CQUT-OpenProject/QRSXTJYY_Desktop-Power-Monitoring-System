@@ -20,8 +20,12 @@ file(GLOB_RECURSE APP_SOURCES CONFIGURE_DEPENDS "app/src/*.c")
 file(GLOB_RECURSE CMSIS_SOURCES CONFIGURE_DEPENDS "drivers/cmsis/*.c")
 set(FW_SOURCES
     drivers/STM32F10x_StdPeriph_Driver/src/misc.c
+    drivers/STM32F10x_StdPeriph_Driver/src/stm32f10x_dac.c
+    drivers/STM32F10x_StdPeriph_Driver/src/stm32f10x_dma.c
     drivers/STM32F10x_StdPeriph_Driver/src/stm32f10x_gpio.c
     drivers/STM32F10x_StdPeriph_Driver/src/stm32f10x_rcc.c
+    drivers/STM32F10x_StdPeriph_Driver/src/stm32f10x_tim.c
+    drivers/STM32F10x_StdPeriph_Driver/src/stm32f10x_usart.c
 )
 
 set(STARTUP_SCRIPT "startup/startup_stm32f103xe.s")
@@ -108,6 +112,8 @@ set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/linker/STM32F103RCT6_FLASH.ld)
 target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE
     -ffunction-sections
     -fdata-sections
+    $<$<CONFIG:Debug>:-Og>
+    $<$<CONFIG:Release>:-O2>
 )
 
 target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
