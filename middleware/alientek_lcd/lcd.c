@@ -171,6 +171,81 @@ u16 LCD_BGR2RGB(u16 c)
 	rgb=(b<<11)+(g<<5)+(r<<0);		 
 	return(rgb);
 }	
+
+static u8 LCD_IsInvalidId(u16 id)
+{
+	return id<0XFF||id==0XFFFF||id==0X9300;
+}
+
+static u8 LCD_IsKnownId(u16 id)
+{
+	return id==0X9341||id==0X6804||id==0X5310||id==0X5510||id==0X1963||
+	       id==0X9325||id==0X9328||id==0X9320||id==0X9331||id==0X5408||
+	       id==0X1505||id==0XB505||id==0XC505||id==0X8989||id==0X4531||
+	       id==0X4535;
+}
+
+static u16 LCD_DetectId(void)
+{
+	u16 id;
+
+	delay_ms(50);
+	LCD_WriteReg(0x0000,0x0001);
+	delay_ms(50);
+	id=LCD_ReadReg(0x0000);
+	if(LCD_IsInvalidId(id))//ILI9341在无硬件复位时可能读成9300，按原厂流程继续探测
+	{
+		LCD_WR_REG(0XD3);
+		LCD_RD_DATA();
+		LCD_RD_DATA();
+		id=LCD_RD_DATA();
+		id<<=8;
+		id|=LCD_RD_DATA();
+		if(id!=0X9341)
+		{
+			LCD_WR_REG(0XBF);
+			LCD_RD_DATA();
+			LCD_RD_DATA();
+			LCD_RD_DATA();
+			id=LCD_RD_DATA();
+			id<<=8;
+			id|=LCD_RD_DATA();
+			if(id!=0X6804)
+			{
+				LCD_WR_REG(0XD4);
+				LCD_RD_DATA();
+				LCD_RD_DATA();
+				id=LCD_RD_DATA();
+				id<<=8;
+				id|=LCD_RD_DATA();
+				if(id!=0X5310)
+				{
+					LCD_WR_REG(0XDA00);
+					LCD_RD_DATA();
+					LCD_WR_REG(0XDB00);
+					id=LCD_RD_DATA();
+					id<<=8;
+					LCD_WR_REG(0XDC00);
+					id|=LCD_RD_DATA();
+					if(id==0x8000)id=0x5510;
+					if(id!=0X5510)
+					{
+						LCD_WR_REG(0XA1);
+						id=LCD_RD_DATA();
+						id=LCD_RD_DATA();
+						id<<=8;
+						id|=LCD_RD_DATA();
+						if(id==0X5761)id=0X1963;
+					}
+				}
+			}
+		}
+	}
+
+	if(!LCD_IsKnownId(id))id=0X9341;
+	return id;
+}
+
 //当mdk -O1时间优化时需要设置
 //延时i
 void opt_delay(u8 i)
@@ -665,18 +740,18 @@ void LCD_Init(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOC, &GPIO_InitStructure); //GPIOC	
 
-	GPIO_SetBits(GPIOC,GPIO_Pin_10|GPIO_Pin_9|GPIO_Pin_8|GPIO_Pin_7|GPIO_Pin_6);
+	GPIO_ResetBits(GPIOC,GPIO_Pin_10); // Keep backlight off until GRAM is initialized.
+	GPIO_SetBits(GPIOC,GPIO_Pin_9|GPIO_Pin_8|GPIO_Pin_7|GPIO_Pin_6);
 
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_All;	//  PORTB推挽输出
 	GPIO_Init(GPIOB, &GPIO_InitStructure); //GPIOB
  
 	GPIO_SetBits(GPIOB,GPIO_Pin_All);
 
-	delay_ms(50); // delay 50 ms
-	lcddev.id=LCD_FIXED_DRIVER_ID;
+	lcddev.id=LCD_DetectId();
 	if(lcddev.id==0X9341)	//9341初始化
 	{	 
-		LCD_WR_REG(0xCF);  
+		LCD_WR_REG(0xCF);
 		LCD_WR_DATAX(0x00); 
 		LCD_WR_DATAX(0xC1); 
 		LCD_WR_DATAX(0X30); 

@@ -95,9 +95,6 @@ extern _lcd_dev lcddev;	//管理LCD重要参数
 extern u16  POINT_COLOR;//默认红色    
 extern u16  BACK_COLOR; //背景颜色.默认为白色
 
-#define LCD_DRIVER_ILI9341 0X9341
-#define LCD_FIXED_DRIVER_ID LCD_DRIVER_ILI9341
-
 ////////////////////////////////////////////////////////////////////
 //-----------------LCD端口定义---------------- 
 #define	LCD_LED PCout(10) 				//LCD背光    	PC10 

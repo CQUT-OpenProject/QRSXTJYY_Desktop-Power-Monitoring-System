@@ -21,6 +21,8 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include "app_capture.h"
+#include "app_protocol.h"
 #include "stm32f10x_it.h"
 
 /** @addtogroup STM32F10x_StdPeriph_Template
@@ -150,6 +152,24 @@ void SysTick_Handler(void)
 /*void PPP_IRQHandler(void)
 {
 }*/
+
+void TIM2_IRQHandler(void)
+{
+  /*
+   * TIM2 同时负责 PA1 输入捕获和微秒时间基准。
+   * 中断入口只转发，具体标志位交给 app_capture 处理。
+   */
+  app_capture_tim2_irq_handler();
+}
+
+void USART1_IRQHandler(void)
+{
+  /*
+   * USART1 收到字节时进入这里。中断里只收字节，
+   * 命令解析留到主循环执行。
+   */
+  app_protocol_usart1_irq_handler();
+}
 
 /**
   * @}
