@@ -17,7 +17,10 @@ typedef enum {
     APP_UI_PAGE_PWM,
 
     /** 频率测量和串口上报设置页。 */
-    APP_UI_PAGE_MEASURE
+    APP_UI_PAGE_MEASURE,
+
+    /** DA 波形监看页。 */
+    APP_UI_PAGE_DA
 } app_ui_page_t;
 
 /**
