@@ -8,66 +8,88 @@
  */
 #include <sys/stat.h>
 
+/**
+ * @brief newlib 关闭文件描述符桩函数。
+ */
 int _close(int file)
 {
-    /* 裸机没有文件描述符可关闭，返回 -1 表示不支持。 */
+    // 裸机没有文件描述符可关闭，返回 -1 表示不支持。
     (void)file;
     return -1;
 }
 
+/**
+ * @brief newlib 查询文件状态桩函数，固定报告为字符设备。
+ */
 int _fstat(int file, struct stat *st)
 {
-    /* 告诉 C 库这是字符设备，printf 这类函数就不会按普通文件处理。 */
+    // 告诉 C 库这是字符设备，printf 这类函数就不会按普通文件处理。
     (void)file;
     st->st_mode = S_IFCHR;
     return 0;
 }
 
+/**
+ * @brief newlib 判断终端设备桩函数，固定返回真。
+ */
 int _isatty(int file)
 {
-    /* 当作终端设备处理，满足 newlib 对 stdout/stderr 的判断。 */
+    // 当作终端设备处理，满足 newlib 对 stdout/stderr 的判断。
     (void)file;
     return 1;
 }
 
+/**
+ * @brief newlib 获取进程 ID 桩函数。
+ */
 int _getpid(void)
 {
-    /* 没有进程概念，返回一个固定的假 PID 即可。 */
+    // 没有进程概念，返回一个固定的假 PID 即可。
     return 1;
 }
 
+/**
+ * @brief newlib 发送信号桩函数。
+ */
 int _kill(int pid, int sig)
 {
-    /* 没有操作系统，也就没有 kill 信号可发。 */
+    // 没有操作系统，也就没有 kill 信号可发。
     (void)pid;
     (void)sig;
     return -1;
 }
 
+/**
+ * @brief newlib 文件定位桩函数。
+ */
 int _lseek(int file, int ptr, int dir)
 {
-    /* 字符设备不支持 seek，这里只返回 0 让 C 库继续运行。 */
+    // 字符设备不支持 seek，这里只返回 0 让 C 库继续运行。
     (void)file;
     (void)ptr;
     (void)dir;
     return 0;
 }
 
+/**
+ * @brief newlib 读取桩函数，当前不提供标准输入数据。
+ */
 int _read(int file, char *ptr, int len)
 {
-    /* 当前没有把 stdin 接到串口，读操作直接返回 0 表示没有数据。 */
+    // 当前没有把 stdin 接到串口，读操作直接返回 0 表示没有数据。
     (void)file;
     (void)ptr;
     (void)len;
     return 0;
 }
 
+/**
+ * @brief newlib 写入桩函数，直接报告写入成功。
+ */
 int _write(int file, char *ptr, int len)
 {
-    /*
-     * 这里不负责输出字符，只告诉 C 库“写入成功”。
-     * 项目自己的串口输出走 app_protocol_send_line。
-     */
+    // 这里不负责输出字符，只告诉 C 库“写入成功”。
+    // 项目自己的串口输出走 app_protocol 的帧发送接口。
     (void)file;
     (void)ptr;
     return len;

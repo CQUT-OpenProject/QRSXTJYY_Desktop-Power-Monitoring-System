@@ -10,26 +10,21 @@
 #include "app_ui.h"
 #include "board.h"
 
+/**
+ * @brief 按安全顺序初始化板级资源和应用模块。
+ */
 void app_startup_init(void)
 {
-    /*
-     * board_init 放最前面，先把开发板上需要安全电平的 GPIO 设好。
-     */
+    // 配置需要安全电平的 GPIO
     board_init();
 
-    /*
-     * LCD 初始化比较慢，还会操作总线和延时。
-     * 先把 LCD 准备好，再开串口和定时器中断。
-     */
+    // 初始化 LCD
     app_display_init();
 
-    /* 按键只依赖 GPIO，放在串口、定时器启动前初始化。 */
+    // 初始化按键
     app_keys_init();
 
-    /*
-     * 下面这些模块会启用 USART/TIM/DAC/DMA。先启动通信和测试源，
-     * 再启动测量与波形输出，最后初始化只保存状态的模块。
-     */
+    // 初始化通信协议
     app_protocol_init();
     app_pwm_init();
     app_capture_init();

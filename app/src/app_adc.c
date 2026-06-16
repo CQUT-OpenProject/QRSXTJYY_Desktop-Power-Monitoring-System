@@ -7,6 +7,9 @@
  */
 #include "app_adc.h"
 
+/**
+ * @brief 初始化 ADC 模块预留入口。
+ */
 void app_adc_init(void)
 {
 }
