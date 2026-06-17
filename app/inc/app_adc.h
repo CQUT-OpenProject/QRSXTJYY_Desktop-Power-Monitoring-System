@@ -63,8 +63,8 @@ typedef struct {
     uint32_t irms_x1000;
     /** 漏电流真有效值 × 1000（单位 0.001 A） */
     uint32_t ilk_rms_x1000;
-    /** 有功功率 × 10（单位 0.1 W） */
-    uint32_t active_power_x10;
+    /** 有功功率 × 10（单位 0.1 W），有符号：正=消耗，负=回馈 */
+    int32_t  active_power_x10;
     /** 视在功率 × 10（单位 0.1 VA） */
     uint32_t apparent_power_x10;
     /** 功率因数 × 1000（范围 0..1000，例如 810 表示 0.810） */

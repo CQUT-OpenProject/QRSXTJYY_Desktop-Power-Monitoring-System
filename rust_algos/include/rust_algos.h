@@ -25,9 +25,9 @@ typedef struct PmElectricalResult {
    */
   uint32_t ilk_rms_x1000;
   /**
-   * 有功功率 × 10（单位 0.1 W）
+   * 有功功率 × 10（单位 0.1 W），有符号：正=消耗，负=回馈
    */
-  uint32_t active_power_x10;
+  int32_t active_power_x10;
   /**
    * 视在功率 × 10（单位 0.1 VA）
    */

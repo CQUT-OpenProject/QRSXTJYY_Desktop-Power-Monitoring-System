@@ -406,12 +406,15 @@ void app_command_format_status(const app_monitor_state_t *state,
     }
 
     if (state->adc.params != 0) {
+        int32_t p_val = state->adc.params->active_power_x10;
+        uint32_t p_abs = (p_val < 0) ? (uint32_t)(-p_val) : (uint32_t)p_val;
+        const char *p_sign = (p_val < 0) ? "-" : "";
         snprintf(line,
                  line_size,
                  "OK STATUS MEAS=%lu.%02luHz PWM=%luHz REPORT=%s "
                  "DAC_MODE=%s DAC_FREQ=%luHz DAC_AMP=%u DAC_PHASE=%u "
                  "VRMS=%lu.%02lu IRMS=%lu.%03lu ILK=%lu.%03lu "
-                 "P=%lu.%01lu S=%lu.%01lu PF=%lu.%03lu CAL=%s",
+                 "P=%s%lu.%01lu S=%lu.%01lu PF=%lu.%03lu CAL=%s",
                  (unsigned long)(state->mains_frequency.frequency_x100 / 100U),
                  (unsigned long)(state->mains_frequency.frequency_x100 % 100U),
                  (unsigned long)state->pwm_output.frequency_hz,
@@ -426,8 +429,9 @@ void app_command_format_status(const app_monitor_state_t *state,
                  (unsigned long)(state->adc.params->irms_x1000 % 1000U),
                  (unsigned long)(state->adc.params->ilk_rms_x1000 / 1000U),
                  (unsigned long)(state->adc.params->ilk_rms_x1000 % 1000U),
-                 (unsigned long)(state->adc.params->active_power_x10 / 10U),
-                 (unsigned long)(state->adc.params->active_power_x10 % 10U),
+                 p_sign,
+                 (unsigned long)(p_abs / 10U),
+                 (unsigned long)(p_abs % 10U),
                  (unsigned long)(state->adc.params->apparent_power_x10 / 10U),
                  (unsigned long)(state->adc.params->apparent_power_x10 % 10U),
                  (unsigned long)(state->adc.params->power_factor_x1000 / 1000U),

@@ -214,10 +214,22 @@ static void render_adc_page(const app_monitor_state_t *state, const app_ui_state
     show_text_line(18U, y, line, WHITE);
     y = (uint16_t)(y + 22U);
 
-    // Active power
-    snprintf(line, sizeof(line), "P:      %lu.%01lu W",
-             (unsigned long)(p->active_power_x10 / 10U),
-             (unsigned long)(p->active_power_x10 % 10U));
+    // Active power (signed: positive = consumption, negative = feedback)
+    {
+        int32_t pw = p->active_power_x10;
+        uint32_t p_abs;
+        const char *sign = "";
+        if (pw < 0) {
+            p_abs = (uint32_t)(-pw);
+            sign = "-";
+        } else {
+            p_abs = (uint32_t)pw;
+        }
+        snprintf(line, sizeof(line), "P:     %s%lu.%01lu W",
+                 sign,
+                 (unsigned long)(p_abs / 10U),
+                 (unsigned long)(p_abs % 10U));
+    }
     show_text_line(18U, y, line, WHITE);
     y = (uint16_t)(y + 22U);
 

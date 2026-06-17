@@ -23,8 +23,8 @@ pub struct PmElectricalResult {
     pub irms_x1000: u32,
     /// 漏电流真有效值 × 1000（单位 0.001 A）
     pub ilk_rms_x1000: u32,
-    /// 有功功率 × 10（单位 0.1 W）
-    pub active_power_x10: u32,
+    /// 有功功率 × 10（单位 0.1 W），有符号：正=消耗，负=回馈
+    pub active_power_x10: i32,
     /// 视在功率 × 10（单位 0.1 VA）
     pub apparent_power_x10: u32,
     /// 功率因数 × 1000（范围 0..1000，例如 810 表示 0.810）
@@ -166,7 +166,8 @@ pub extern "C" fn pm_calc_electrical(
     r.ilk_rms_x1000 = ilkrms_code.saturating_mul(ilk_gain_x1000) / 1000;
 
     // 4. 有功功率：mean(v_centered × i_centered)，再乘组合增益
-    //    先算 Σ(v_ac[n] × i_ac[n]) / N（原始码值域），再乘增益转物理量
+    //    先算 Σ(v_ac[n] × i_ac[n]) / N（原始码值域），再乘增益转物理量。
+    //    保留符号：正=消耗功率，负=回馈功率。
     let active_sum: i64 = v_slice
         .iter()
         .zip(i_slice.iter())
@@ -177,46 +178,35 @@ pub extern "C" fn pm_calc_electrical(
         })
         .sum();
 
-    // 平均瞬时功率（码值域）
-    let active_code = if active_sum >= 0 {
-        (active_sum as u64 / n as u64) as u32
-    } else {
-        // 负功率在纯交流采样中不应发生（去直流后正负对称），
-        // 但用 unsigned_abs 防止意外
-        ((-active_sum) as u64 / n as u64) as u32
-    };
+    // 平均瞬时功率（码值域，有符号）
+    let active_code: i32 = (active_sum / n as i64) as i32;
 
-    // 有功功率 → 物理量
+    // 有功功率 → 物理量（W × 10）
     // active_code = mean(v_ac × i_ac)，单位 code²。
-    // vrms_x100 单位为 0.01V，irms_x1000 单位为 0.001A，
-    // 故 P(W) = vrms × irms = (vrms_x100/100) × (irms_x1000/1000)
-    //         = vrms_x100 × irms_x1000 / 100_000
-    // active_power_x10 = P × 10 = vrms_x100 × irms_x1000 / 10_000
-    // 将 vrms_x100 = vrms_code×v_gain/1000, irms_x1000 = irms_code×i_gain/1000 代入：
-    //   active_code × v_gain × i_gain / 1_000_000 / 10_000
-    //   = active_code × v_gain × i_gain / 10_000_000_000
+    // P(W) × 10 = active_code × v_gain_x1000 × i_gain_x1000 / 10^10
     // 验证：1125721 × 1000 × 1000 / 10^10 ≈ 112.6 → 11.26W ✓
-    r.active_power_x10 = ((active_code as u64)
-        * (v_gain_x1000 as u64)
-        * (i_gain_x1000 as u64)
-        / 10_000_000_000u64) as u32;
+    r.active_power_x10 = ((active_code as i64)
+        .wrapping_mul(v_gain_x1000 as i64)
+        .wrapping_mul(i_gain_x1000 as i64)
+        / 10_000_000_000i64) as i32;
 
     // 5. 视在功率 = Vrms × Irms
     //    vrms_x100 / 100 × irms_x1000 / 1000 = vrms × irms (VA)
     //    apparent_x10 = vrms_x100 × irms_x1000 / 10000
     r.apparent_power_x10 = ((r.vrms_x100 as u64) * (r.irms_x1000 as u64) / 10000) as u32;
 
-    // 6. 功率因数 PF × 1000 = (P / S) × 1000
+    // 6. 功率因数 PF × 1000 = (|P| / S) × 1000
+    //    S=0 时无负载，功率因数无意义，返回 0
     r.power_factor_x1000 = if r.apparent_power_x10 > 0 {
-        let pf = r.active_power_x10.saturating_mul(1000) / r.apparent_power_x10;
+        let p_abs = r.active_power_x10.unsigned_abs();
+        let pf = p_abs.saturating_mul(1000) / r.apparent_power_x10;
         if pf > 1000 {
             1000
         } else {
             pf as u16
         }
     } else {
-        // 无电流时 S=0，纯电压输入视为 PF=1.0
-        1000
+        0
     };
 
     r.reserved = 0;
