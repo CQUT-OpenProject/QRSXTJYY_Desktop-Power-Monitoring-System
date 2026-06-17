@@ -8,14 +8,16 @@
 - PA1 频率测量：PA1/TIM2_CH2 输入捕获测量外部频率，结果显示在 LCD 和 `STATUS?` 串口响应中。
 - DA 波形生成：PA4/PA5 双路 DAC 使用 TIM6 TRGO 触发，DMA2_CH3/CH4 循环输出 128 点正弦表。
 - DA 曲线显示：LCD 的 `DA Wave` 页面显示 DAC 模式、频率、幅值、相位，并绘制 CH1/CH2 两路曲线和坐标轴。
-- USART1 协议：通过 PA9/PA10、115200 8N1 接收命令，支持状态查询、自动上报开关、PWM 和 DAC 参数设置。
+- ADC 采样与电参数计算：PC0/PC1/PC2（ADC1_IN10/IN11/IN12）三通道模拟输入，TIM3 TRGO 以 6400 Hz 触发 ADC1 规则组扫描。DMA1_Channel1 循环搬运 384 半字，DMA TC 中断解交错到三个独立通道数组。Rust 定点数算法计算 Vrms、Irms、漏电流 Irms、有功功率、视在功率和功率因数。支持 CAL ZERO 调零命令。
+- USART1 协议：通过 PA9/PA10、115200 8N1 接收命令，支持状态查询、自动上报开关、PWM 和 DAC 参数设置、ADC 零偏移校准。
 - 板级保护：启动时拉高 PC13、PA2、PA3 片选信号，避免触摸/W25Q64/SD 等共享外设误响应。
 
-LCD 主菜单包含三个页面：
+LCD 主菜单包含四个页面：
 
 - `Square Wave`：查看和按键编辑 PA8 PWM 频率。
 - `Freq Measure`：查看 PA1 测频结果，并开关串口自动上报。
 - `DA Wave`：查看 PA4/PA5 DAC 参数和两路正弦曲线。DA 参数通过串口修改，不通过按键编辑。
+- `AC Measure`：显示 PC0/PC1/PC2 采样的 Vrms、Irms、漏电流、有功功率、视在功率、功率因数，以及电压通道原始 ADC 范围。电参数由 Rust 定点数算法计算。
 
 ## 串口协议
 
@@ -52,17 +54,25 @@ DAC SET MODE SINGLE|DUAL
 DAC SET FREQ <hz>
 DAC SET AMP <code>
 DAC SET PHASE <deg>
+CAL ZERO
 ```
 
 说明：
 
-- `STATUS?` 返回 PA1 测频、PWM 频率、上报开关、DAC 模式、DAC 频率、幅值和相位。
+- `STATUS?` 返回 PA1 测频、PWM 频率、上报开关、DAC 模式/频率/幅值/相位、以及 ADC 电参数（Vrms/Irms/漏电流/有功功率/视在功率/功率因数/校准状态）。
 - `HELP` 会返回多条 `TYPE=0x81` 响应帧，每条响应帧使用同一个 `SEQ`。
 - `DAC SET MODE SINGLE` 时，CH1 输出正弦波，CH2 保持 DAC 中点电压。
 - `DAC SET MODE DUAL` 时，CH1/CH2 输出同频同幅正弦波，CH2 相对 CH1 使用 `DAC SET PHASE` 指定相位差。
 - `DAC SET FREQ` 当前限制在 1..1000 Hz，`DAC SET AMP` 当前限制到安全码值范围内。
+- `CAL ZERO` 对当前 ADC 三通道各 128 点求算术平均值作为 DC 偏移补偿值，后续电参数计算时自动扣除。校准状态会显示在 `STATUS?` 响应和 LCD 页面中。
 - 设备启动后会主动发送 `TYPE=0x82, SEQ=0, PAYLOAD="OK COURSE1 READY"`。
 - CRC 错误、帧不完整或 SOF 噪声会被静默丢弃；版本、类型或 payload 长度不合法时返回协议错误帧。
+
+`STATUS?` 响应格式示例：
+
+```text
+OK STATUS MEAS=50.00Hz PWM=50Hz REPORT=ON DAC_MODE=SINGLE DAC_FREQ=50Hz DAC_AMP=1500 DAC_PHASE=0 VRMS=220.12 IRMS=1.234 ILK=0.005 P=220.1 S=271.5 PF=0.810 CAL=YES
+```
 
 `STATUS?` 命令帧示例，`SEQ=0x2A`：
 
@@ -77,7 +87,7 @@ A5 5A 01 01 2A 07 00 53 54 41 54 55 53 3F B4 59
 - `core/`：启动后的 C 入口、中断文件、`SystemInit`。
 - `bsp/`：板级支持代码，包括延时、系统兼容头文件等。
 - `middleware/alientek_lcd/`：ALIENTEK TFT LCD 驱动。
-- `app/`：应用层模块，包含 LCD 菜单显示、USART1 协议、DAC 波形、PWM 输出、PA1 输入捕获测频等功能。
+- `app/`：应用层模块，包含 LCD 菜单显示、USART1 协议、DAC 波形、PWM 输出、PA1 输入捕获测频、ADC 采样与电参数计算等功能。
 - `rust_algos/`：`no_std` Rust 静态库，供 C 主工程链接。
 - `linker/`：STM32F103RCT6 的 Flash/RAM 链接脚本。
 - `startup/`：启动汇编文件。
@@ -173,6 +183,9 @@ python3 -m serial.tools.list_ports -v
 4. 进入 `DA Wave` 页面，示波器测 PA4/PA5，确认默认 50 Hz 正弦波和 LCD 曲线显示。
 5. 通过串口帧发送 `DAC SET MODE DUAL`、`DAC SET FREQ 80`、`DAC SET AMP 1900`、`DAC SET PHASE 180`，确认 PA4/PA5 和 LCD 曲线同步变化。
 6. 将 PA4 接 PA1，通过串口帧发送 `STATUS?`，确认 `MEAS` 与 `DAC_FREQ` 接近。
+7. 将 PA4 DAC 飞线到 PC0/PC1，进入 `AC Measure` 页面，确认 V ADC min/max 随信号变化。
+8. 发送 `STATUS?`，确认响应包含 `VRMS`/`IRMS`/`ILK`/`P`/`S`/`PF`/`CAL` 字段。
+9. 发送 `CAL ZERO` → 返回 `OK CAL ZERO DONE` → 再发 `STATUS?` 确认 `CAL=YES`。
 
 ## Rust/C 接口与 cbindgen
 
@@ -184,6 +197,13 @@ Rust 暴露给 C 调用的函数需要满足以下约定：
 - 使用 `#[no_mangle]` 保持符号名不被 Rust 编译器改写。
 - FFI 边界优先使用 `u32`、`i32`、指针等 C 侧明确可表达的类型。
 - 导出结构体或枚举需要使用 `#[repr(C)]` 固定内存布局。
+
+当前 Rust 算法库导出以下接口：
+
+| 函数 | 用途 |
+|------|------|
+| `pm_calc_power_x100(v, i)` | 电压 × 电流 → 功率（定点数） |
+| `pm_calc_electrical(v, i, ilk, count, ...)` | 从三通道 ADC 样点计算 Vrms/Irms/漏电流/P/S/PF |
 
 生成规则位于：
 
