@@ -202,7 +202,7 @@ arm-none-eabi-objcopy -O binary \
   build/Debug/desktop_power_monitor.bin
 ```
 
-## 使用 ST-Link 烧录
+### 使用 ST-Link 烧录
 
 连接 ST-Link 后执行：
 
