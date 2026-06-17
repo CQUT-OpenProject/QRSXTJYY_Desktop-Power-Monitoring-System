@@ -8,7 +8,7 @@
 - PA1 频率测量：PA1/TIM2_CH2 输入捕获测量外部频率，结果显示在 LCD 和 `STATUS?` 串口响应中。
 - DA 波形生成：PA4/PA5 双路 DAC 使用 TIM6 TRGO 触发，DMA2_CH3/CH4 循环输出 128 点正弦表。
 - DA 曲线显示：LCD 的 `DA Wave` 页面显示 DAC 模式、频率、幅值、相位，并绘制 CH1/CH2 两路曲线和坐标轴。
-- ADC 采样与电参数计算：PC0/PC1/PC2（ADC1_IN10/IN11/IN12）三通道模拟输入，TIM3 TRGO 以 6400 Hz 触发 ADC1 规则组扫描。DMA1_Channel1 循环搬运 384 半字，DMA TC 中断解交错到三个独立通道数组。Rust 定点数算法计算 Vrms、Irms、漏电流 Irms、有功功率、视在功率和功率因数。支持 CAL ZERO 调零命令。
+- ADC 采样与电参数计算：PC0/PC3/PC2（ADC1_IN10/IN13/IN12）三通道模拟输入，TIM3 TRGO 以 6400 Hz 触发 ADC1 规则组扫描。DMA1_Channel1 循环搬运 384 半字，DMA TC 中断解交错到三个独立通道数组。Rust 定点数算法计算 Vrms、Irms、漏电流 Irms、有功功率、视在功率和功率因数。支持 CAL ZERO 调零命令。
 - USART1 协议：通过 PA9/PA10、115200 8N1 接收命令，支持状态查询、自动上报开关、PWM 和 DAC 参数设置、ADC 零偏移校准。
 - 板级保护：启动时拉高 PC13、PA2、PA3 片选信号，避免触摸/W25Q64/SD 等共享外设误响应。
 
@@ -17,7 +17,7 @@ LCD 主菜单包含四个页面：
 - `Square Wave`：查看和按键编辑 PA8 PWM 频率。
 - `Freq Measure`：查看 PA1 测频结果，并开关串口自动上报。
 - `DA Wave`：查看 PA4/PA5 DAC 参数和两路正弦曲线。DA 参数通过串口修改，不通过按键编辑。
-- `AC Measure`：显示 PC0/PC1/PC2 采样的 Vrms、Irms、漏电流、有功功率、视在功率、功率因数，以及电压通道原始 ADC 范围。电参数由 Rust 定点数算法计算。
+- `AC Measure`：显示 PC0/PC3/PC2 采样的 Vrms、Irms、漏电流、有功功率、视在功率、功率因数，以及电压通道原始 ADC 范围。电参数由 Rust 定点数算法计算。
 
 ## 串口协议
 

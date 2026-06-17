@@ -61,7 +61,7 @@ typedef struct {
     /** PA4/PA5 DAC 波形输出状态和波形预览。 */
     app_dac_output_t dac_output;
 
-    /** PC0/PC1/PC2 ADC 采样与电参数。 */
+    /** PC0/PC3/PC2 ADC 采样与电参数。 */
     app_monitor_adc_t adc;
 } app_monitor_state_t;
 

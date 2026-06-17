@@ -176,7 +176,7 @@ void DMA1_Channel1_IRQHandler(void)
 {
   /*
    * DMA1_Channel1 负责把 ADC1->DR 循环搬运到内存缓冲区。
-   * 每次 384 半字传输完成时进入这里，解交错到三通道数组。
+   * 使用 2 倍帧长循环缓冲，HT/TC 分别处理前/后半帧。
    */
   app_adc_dma1_ch1_irq_handler();
 }

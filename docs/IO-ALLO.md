@@ -9,7 +9,7 @@
 | PA4 | DAC_OUT1 | 正弦波输出 1 `DAC_CH1` | 外接示波器 / 测试点 | 模拟输出 | 是 | 原 NRF_CE；不插 NRF 模块 |
 | PA5 | DAC_OUT2 | 正弦波输出 2 `DAC_CH2` | 外接示波器 / 测试点 | 模拟输出 | 是 | 原 SPI1_SCK；因此 MAX7219 不用硬件 SPI1 |
 | PA6 | GPIO / SPI1_MISO | 保留 | SPI1_MISO 共享线 | 输入/保留 | 否 | 与 W25Q64/SD/NRF 共享，不建议另作输出 |
-| PA7 | GPIO 推挽输出 | MAX7219 数据 `MAX7219_DIN` | miniIO `DIN`，JP1-7/8 | 输出 | 是 | 原 SPI1_MOSI；使用软件 SPI，PA2/PA3 保持高 |
+| PA7 | GPIO 推挽输出 | MAX7219 数据 `MAX7219_DIN` | miniIO `DIN`，JP1-7/8 | 输出 | 预留，当前未启用 | 原 SPI1_MOSI；使用软件 SPI，PA2/PA3 保持高 |
 | PA8 | TIM1_CH1 PWM 输出 | PWM 测试频率源 `PWM_OUT` | 板载 LED0；可飞线到 PA1 自测 | 输出 | 是 | LED0 会随 PWM 闪烁；演示 50Hz 方波可用 |
 | PA9 | USART1_TX | 串口发送 `USART1_TX` | 板载 CH340 RX | 输出 | 是 | 用于通信协议、参数下发、数据显示 |
 | PA10 | USART1_RX | 串口接收 `USART1_RX` | 板载 CH340 TX | 输入 | 是 | 用于通信协议、参数下发 |
@@ -38,15 +38,15 @@
 | PC1 | ADC1_IN11 | **禁用** — 被触摸屏 T_PEN 硬件拉高 | — | — | 否 | T_PEN 上拉导致 ADC 读数异常，不可用作模拟输入 |
 | PC2 | ADC1_IN12 | 漏电电流采样 `ADC_ILK` | miniIO `iLK`，JP1-15/16 | 模拟输入 | 是 | 原触摸屏 T_MISO；本方案禁用触摸屏 |
 | PC3 | ADC1_IN13 | 电流采样 `ADC_IL` | miniIO 飞线至 JP1-17/18 | 模拟输入 | 是 | 原触摸屏 T_MOSI；触摸屏禁用后可安全使用 |
-| PC4 | GPIO 推挽输出 | MAX7219 时钟 `MAX7219_CLK` | miniIO `CLK`，JP1-3/4 | 输出 | 是 | 原 NRF_CS；不插 NRF 模块 |
+| PC4 | GPIO 推挽输出 | MAX7219 时钟 `MAX7219_CLK` | miniIO `CLK`，JP1-3/4 | 输出 | 预留，当前未启用 | 原 NRF_CS；不插 NRF 模块 |
 | PC5 | GPIO 输入上拉 | KEY0 `MENU_DOWN` | KEY0 / PS_DAT | 输入 | 是 | KEY0 低有效；当前不启用 MAX7219 |
 | PC6 | GPIO 推挽输出 | LCD_RD | TFTLCD RD | 输出 | 是 | LCD 占用 |
 | PC7 | GPIO 推挽输出 | LCD_WR | TFTLCD WR | 输出 | 是 | LCD 占用 |
 | PC8 | GPIO 推挽输出 | LCD_RS | TFTLCD RS | 输出 | 是 | LCD 占用 |
 | PC9 | GPIO 推挽输出 | LCD_CS | TFTLCD CS | 输出 | 是 | LCD 占用 |
 | PC10 | GPIO 推挽输出 | LCD_BL | TFTLCD 背光 BL | 输出 | 是 | LCD 占用 |
-| PC11 | GPIO 推挽输出 | 蜂鸣器控制 `BEEP` | miniIO `beep`，JP1-9/10 | 输出 | 是 | 原 24C02 SDA；本项目不使用 EEPROM |
-| PC12 | GPIO 推挽输出 | 继电器控制 `RELAY` | miniIO `relay`，JP1-11/12 | 输出 | 是 | 原 24C02 SCL；高电平继电器动作 |
+| PC11 | GPIO 推挽输出 | 蜂鸣器控制 `BEEP` | miniIO `beep`，JP1-9/10 | 输出 | 预留，当前未启用 | 原 24C02 SDA；本项目不使用 EEPROM |
+| PC12 | GPIO 推挽输出 | 继电器控制 `RELAY` | miniIO `relay`，JP1-11/12 | 输出 | 预留，当前未启用 | 原 24C02 SCL；高电平继电器动作 |
 | PC13 | GPIO 推挽输出 / 输入上拉 | 触摸片选禁用 `TP_CS_DISABLE` | TFTLCD 触摸 CS | 输出/保留 | 是，安全态 | 置高或保持上拉，禁用触摸控制器 |
 | PC14 | RTC_OSC32_IN | 禁用 | 32.768kHz 晶振 | 晶振 | 否 | 不可作 GPIO |
 | PC15 | RTC_OSC32_OUT | 禁用 | 32.768kHz 晶振 | 晶振 | 否 | 不可作 GPIO |
