@@ -35,9 +35,9 @@
 | PB14 | GPIO 推挽输出 | LCD_D14 | TFTLCD 数据线 D14 | 输出 | 是 | LCD 占用 |
 | PB15 | GPIO 推挽输出 | LCD_D15 | TFTLCD 数据线 D15 | 输出 | 是 | LCD 占用 |
 | PC0 | ADC1_IN10 | 电压采样 `ADC_VL` | miniIO `VL`，JP1-19/20 | 模拟输入 | 是 | 原触摸屏 T_SCK；本方案禁用触摸屏 |
-| PC1 | ADC1_IN11 | 电流采样 `ADC_IL` | miniIO `iL`，JP1-17/18 | 模拟输入 | 是 | 原触摸屏 T_PEN；本方案禁用触摸屏 |
+| PC1 | ADC1_IN11 | **禁用** — 被触摸屏 T_PEN 硬件拉高 | — | — | 否 | T_PEN 上拉导致 ADC 读数异常，不可用作模拟输入 |
 | PC2 | ADC1_IN12 | 漏电电流采样 `ADC_ILK` | miniIO `iLK`，JP1-15/16 | 模拟输入 | 是 | 原触摸屏 T_MISO；本方案禁用触摸屏 |
-| PC3 | ADC1_IN13 / GPIO | ADC 备用通道 `ADC_SPARE` | 暂不接 | 模拟输入/保留 | 否 | 原触摸屏 T_MOSI；触摸屏禁用后可备用 |
+| PC3 | ADC1_IN13 | 电流采样 `ADC_IL` | miniIO 飞线至 JP1-17/18 | 模拟输入 | 是 | 原触摸屏 T_MOSI；触摸屏禁用后可安全使用 |
 | PC4 | GPIO 推挽输出 | MAX7219 时钟 `MAX7219_CLK` | miniIO `CLK`，JP1-3/4 | 输出 | 是 | 原 NRF_CS；不插 NRF 模块 |
 | PC5 | GPIO 输入上拉 | KEY0 `MENU_DOWN` | KEY0 / PS_DAT | 输入 | 是 | KEY0 低有效；当前不启用 MAX7219 |
 | PC6 | GPIO 推挽输出 | LCD_RD | TFTLCD RD | 输出 | 是 | LCD 占用 |

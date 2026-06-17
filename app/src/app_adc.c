@@ -3,9 +3,9 @@
  * @brief ADC 采样与电气参数计算模块实现。
  *
  * 硬件链路：
- *   TIM3 (6400 Hz TRGO) → ADC1 扫描 PC0/PC1/PC2
- *   → DMA1_Channel1 循环搬运 384 半字到 s_dma_buffer
- *   → DMA TC 中断：解交错到 s_adc_v/i/ilk[128]
+ *   TIM3 (6400 Hz TRGO) → ADC1 扫描 PC0/PC3/PC2
+ *   → DMA1_Channel1 循环搬运 2×384 半字到 s_dma_buffer
+ *   → DMA HT 中断：解交错前半帧；TC 中断：解交错后半帧
  *   → app_adc_task() (主循环中)：复制到局部缓冲 → Rust 算法 → 快照更新
  *
  * 校准链路：
@@ -33,30 +33,26 @@
 /** ADC 触发采样率：50 Hz × 128 点/周期 = 6400 组/秒。 */
 #define APP_ADC_SAMPLE_RATE_HZ 6400U
 
-/** DMA 缓冲区大小 = 通道数 × 每通道点数 = 3 × 128 = 384。 */
-#define APP_ADC_DMA_SIZE (APP_ADC_SAMPLES * APP_ADC_CHANNELS)
+/** DMA 缓冲区帧长 = 通道数 × 每通道点数 = 3 × 128 = 384 半字。 */
+#define APP_ADC_FRAME_HALFWORDS (APP_ADC_SAMPLES * APP_ADC_CHANNELS)
 
 /* ================================================================== */
 /* 静态变量                                                           */
 /* ================================================================== */
 
 /**
- * @brief DMA 双缓冲区。
+ * @brief DMA 2 倍帧长循环缓冲区。
  *
- * DMA 循环写入当前活动缓冲区，ISR 在 TC 中断中切换到备用缓冲区后
- * 从刚完成的那份安全地解交错，避免 DMA 下一轮覆写与 ISR 读取竞争。
+ * DMA 以 circular 模式持续写入，总长度 = 2 × 384 = 768 半字。
+ * HT 中断处理前半帧 [0..384)，TC 中断处理后半帧 [384..768)。
+ * 不需要修改 CMAR，也不会出现 ISR 读/DMA 写同一半区的竞争。
  */
-static uint16_t s_dma_buffer_a[APP_ADC_DMA_SIZE];
-static uint16_t s_dma_buffer_b[APP_ADC_DMA_SIZE];
-/** 指向 DMA 当前正在写入的缓冲区。 */
-static volatile uint16_t *s_dma_active = (volatile uint16_t *)s_dma_buffer_a;
-/** 指向 ISR 可以安全读取的已完成缓冲区。 */
-static uint16_t *s_dma_ready;
+static uint16_t s_dma_buffer[2U * APP_ADC_FRAME_HALFWORDS];
 
 /** 解交错后的电压通道样点（PC0 / ADC1_IN10）。 */
 static uint16_t s_adc_v[APP_ADC_SAMPLES];
 
-/** 解交错后的电流通道样点（PC1 / ADC1_IN11）。 */
+/** 解交错后的电流通道样点（PC3 / ADC1_IN13）。 */
 static uint16_t s_adc_i[APP_ADC_SAMPLES];
 
 /** 解交错后的漏电流通道样点（PC2 / ADC1_IN12）。 */
@@ -139,11 +135,11 @@ void app_adc_init(void)
     // DMA1 在 AHB 上
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
 
-    /* --- 2. GPIO: PC0/PC1/PC2 模拟输入 --- */
+    /* --- 2. GPIO: PC0/PC3/PC2 模拟输入 --- */
     {
         GPIO_InitTypeDef gpio;
         GPIO_StructInit(&gpio);
-        gpio.GPIO_Pin  = GPIO_Pin_0 | GPIO_Pin_1 | GPIO_Pin_2;
+        gpio.GPIO_Pin  = GPIO_Pin_0 | GPIO_Pin_3 | GPIO_Pin_2;
         gpio.GPIO_Mode = GPIO_Mode_AIN;
         GPIO_Init(GPIOC, &gpio);
     }
@@ -178,20 +174,20 @@ void app_adc_init(void)
         adc.ADC_NbrOfChannel       = APP_ADC_CHANNELS;
         ADC_Init(ADC1, &adc);
 
-        // 规则组顺序：Rank1=IN10(VL), Rank2=IN11(iL), Rank3=IN12(iLK)
-        // 每通道 55.5 周期采样时间 ≈ 5.6 μs @ 12 MHz
+        // 规则组顺序：Rank1=IN10(VL), Rank2=IN13(iL), Rank3=IN12(iLK)
+        // 每通道 239.5 周期采样时间 ≈ 21 μs @ 12 MHz，降低外部阻抗影响
         ADC_RegularChannelConfig(ADC1,
                                  ADC_Channel_10,
                                  1,
-                                 ADC_SampleTime_55Cycles5);
+                                 ADC_SampleTime_239Cycles5);
         ADC_RegularChannelConfig(ADC1,
-                                 ADC_Channel_11,
+                                 ADC_Channel_13,
                                  2,
-                                 ADC_SampleTime_55Cycles5);
+                                 ADC_SampleTime_239Cycles5);
         ADC_RegularChannelConfig(ADC1,
                                  ADC_Channel_12,
                                  3,
-                                 ADC_SampleTime_55Cycles5);
+                                 ADC_SampleTime_239Cycles5);
 
         // 使能 DMA 请求和外部触发
         ADC_DMACmd(ADC1, ENABLE);
@@ -205,15 +201,15 @@ void app_adc_init(void)
         while (ADC_GetCalibrationStatus(ADC1) != RESET) {}
     }
 
-    /* --- 5. DMA1_Channel1: 外设→内存，循环模式 --- */
+    /* --- 5. DMA1_Channel1: 外设→内存，2倍帧循环模式，HT/TC 中断 --- */
     {
         DMA_InitTypeDef dma;
         DMA_DeInit(DMA1_Channel1);
         DMA_StructInit(&dma);
         dma.DMA_PeripheralBaseAddr = (uint32_t)&ADC1->DR;
-        dma.DMA_MemoryBaseAddr     = (uint32_t)s_dma_buffer_a;
+        dma.DMA_MemoryBaseAddr     = (uint32_t)s_dma_buffer;
         dma.DMA_DIR                = DMA_DIR_PeripheralSRC;
-        dma.DMA_BufferSize         = APP_ADC_DMA_SIZE;
+        dma.DMA_BufferSize         = 2U * APP_ADC_FRAME_HALFWORDS;
         dma.DMA_PeripheralInc      = DMA_PeripheralInc_Disable;
         dma.DMA_MemoryInc          = DMA_MemoryInc_Enable;
         dma.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
@@ -223,8 +219,8 @@ void app_adc_init(void)
         dma.DMA_M2M                = DMA_M2M_Disable;
         DMA_Init(DMA1_Channel1, &dma);
 
-        // 使能传输完成中断
-        DMA_ITConfig(DMA1_Channel1, DMA_IT_TC, ENABLE);
+        // 使能半传输和传输完成中断
+        DMA_ITConfig(DMA1_Channel1, DMA_IT_HT | DMA_IT_TC, ENABLE);
     }
 
     /* --- 6. NVIC: DMA1_Channel1 中断 --- */
@@ -251,46 +247,42 @@ void app_adc_init(void)
 }
 
 /* ================================================================== */
-/* DMA TC 中断处理                                                      */
+/* DMA HT/TC 中断处理                                                   */
 /* ================================================================== */
 
 /**
- * @brief DMA1_Channel1 传输完成中断入口。
+ * @brief 从 DMA 缓冲区指定偏移处解交错一帧数据到三通道数组。
  *
- * 在中断上下文中运行，只做三件事：
- * 1. 清除 TC 标志。
- * 2. 从 s_dma_buffer（交错 V/I/Ilk）解交错到 s_adc_v/i/ilk。
- * 3. 置 s_adc_fresh = 1，通知主循环有新数据。
+ * @param src 指向当前半帧起始位置的指针（384 个半字）。
+ */
+static void deinterleave_frame(const uint16_t *src)
+{
+    uint16_t i;
+    for (i = 0U; i < APP_ADC_SAMPLES; i++) {
+        s_adc_v[i]   = src[i * 3U];
+        s_adc_i[i]   = src[i * 3U + 1U];
+        s_adc_ilk[i] = src[i * 3U + 2U];
+    }
+    s_adc_fresh = 1U;
+}
+
+/**
+ * @brief DMA1_Channel1 半传输/传输完成中断入口。
+ *
+ * HT 中断：前半帧 [0..384) 写完，DMA 正在写后半帧 → 安全读前半帧。
+ * TC 中断：后半帧 [384..768) 写完，DMA 正在写前半帧 → 安全读后半帧。
+ * 无需修改 CMAR，DMA 循环地址不变。
  */
 void app_adc_dma1_ch1_irq_handler(void)
 {
+    if (DMA_GetITStatus(DMA1_IT_HT1) != RESET) {
+        DMA_ClearITPendingBit(DMA1_IT_HT1);
+        deinterleave_frame(&s_dma_buffer[0]);
+    }
+
     if (DMA_GetITStatus(DMA1_IT_TC1) != RESET) {
         DMA_ClearITPendingBit(DMA1_IT_TC1);
-
-        // 切换双缓冲：DMA 刚写完的缓冲区交给 ISR 安全读取，
-        // 下一轮 DMA 写入另一个缓冲区，避免读写竞争。
-        if (s_dma_active == (volatile uint16_t *)s_dma_buffer_a) {
-            s_dma_ready  = s_dma_buffer_b;
-            s_dma_active = (volatile uint16_t *)s_dma_buffer_b;
-        } else {
-            s_dma_ready  = s_dma_buffer_a;
-            s_dma_active = (volatile uint16_t *)s_dma_buffer_a;
-        }
-
-        // 将刚完成的缓冲区重定向给 DMA 下一轮使用。
-        // 必须在解交错之前完成指针切换，ISR 读取 s_dma_ready 期间
-        // DMA 已在写入 s_dma_active，两者互不干扰。
-        DMA1_Channel1->CMAR = (uint32_t)s_dma_active;
-
-        // 从已完成的缓冲区解交错到三通道数组
-        uint16_t i;
-        for (i = 0U; i < APP_ADC_SAMPLES; i++) {
-            s_adc_v[i]   = s_dma_ready[i * 3U];
-            s_adc_i[i]   = s_dma_ready[i * 3U + 1U];
-            s_adc_ilk[i] = s_dma_ready[i * 3U + 2U];
-        }
-
-        s_adc_fresh = 1U;
+        deinterleave_frame(&s_dma_buffer[APP_ADC_FRAME_HALFWORDS]);
     }
 }
 

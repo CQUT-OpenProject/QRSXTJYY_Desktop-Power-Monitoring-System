@@ -2,9 +2,9 @@
  * @file app_adc.h
  * @brief ADC 采样与电气参数计算模块接口。
  *
- * PC0/PC1/PC2 作为 ADC1_IN10/IN11/IN12，TIM3 TRGO 以 6400 Hz 触发 3 通道
- * 规则组扫描。DMA1_Channel1 循环搬运 3x128 个半字到交错缓冲区，每完成一整轮
- * 由 DMA TC 中断解交错到三个独立通道数组并通知主循环。
+ * PC0/PC3/PC2 作为 ADC1_IN10/IN13/IN12，TIM3 TRGO 以 6400 Hz 触发 3 通道
+ * 规则组扫描。DMA1_Channel1 以 2 倍帧长循环搬运，HT/TC 中断分别在半帧和
+ * 整帧完成时解交错到三个独立通道数组并通知主循环。
  *
  * 主循环中的 app_adc_task() 检查新数据标志，将样点复制到局部缓冲区后调用
  * Rust 定点数算法库 pm_calc_electrical() 计算电参数并更新内部快照。
@@ -83,9 +83,9 @@ typedef struct {
  * @brief 初始化 ADC 采样模块。
  *
  * 按以下顺序完成后台硬件配置：
- * RCC → GPIO(PC0-PC2 模拟输入) → TIM3(6400 Hz TRGO)
- * → ADC1(扫描模式，T3_TRGO 触发) → DMA1_Channel1(循环搬运)
- * → NVIC(DMA TC 中断) → 启动 DMA 和 TIM3。
+ * RCC → GPIO(PC0/PC3/PC2 模拟输入) → TIM3(6400 Hz TRGO)
+ * → ADC1(扫描模式，T3_TRGO 触发) → DMA1_Channel1(2倍帧循环搬运)
+ * → NVIC(DMA HT/TC 中断) → 启动 DMA 和 TIM3。
  */
 void app_adc_init(void);
 
@@ -98,10 +98,10 @@ void app_adc_init(void);
 void app_adc_task(void);
 
 /**
- * @brief DMA1_Channel1 传输完成中断入口转发函数。
+ * @brief DMA1_Channel1 半传输/传输完成中断入口转发函数。
  *
  * 由 stm32f10x_it.c 中的 DMA1_Channel1_IRQHandler 调用。
- * 在中断上下文中执行：解交错 DMA 交错缓冲区到三个通道数组，设 new_data 标志。
+ * HT 中断处理前半帧，TC 中断处理后半帧；各自解交错对应半区到三通道数组。
  */
 void app_adc_dma1_ch1_irq_handler(void);
 
@@ -115,7 +115,7 @@ const app_electrical_params_t *app_adc_get_params(void);
 /**
  * @brief 获取指定通道最近一轮的原始 ADC 样点数组。
  *
- * @param channel 0 = 电压(PC0/ADC1_IN10), 1 = 电流(PC1/ADC1_IN11),
+ * @param channel 0 = 电压(PC0/ADC1_IN10), 1 = 电流(PC3/ADC1_IN13),
  *                2 = 漏电流(PC2/ADC1_IN12)
  * @return 指向 128 半字静态数组的指针，channel 非法时返回 NULL。
  */
