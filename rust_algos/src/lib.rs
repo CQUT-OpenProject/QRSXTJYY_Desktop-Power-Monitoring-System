@@ -187,14 +187,19 @@ pub extern "C" fn pm_calc_electrical(
     };
 
     // 有功功率 → 物理量
-    // gain_p = (v_gain/1000) × (i_gain/1000)
-    // active_power_x10 = code × v_gain × i_gain × 10 / 1_000_000
-    // 使用 u64 避免 active_code × gain 中间溢出 u32
+    // active_code = mean(v_ac × i_ac)，单位 code²。
+    // vrms_x100 单位为 0.01V，irms_x1000 单位为 0.001A，
+    // 故 P(W) = vrms × irms = (vrms_x100/100) × (irms_x1000/1000)
+    //         = vrms_x100 × irms_x1000 / 100_000
+    // active_power_x10 = P × 10 = vrms_x100 × irms_x1000 / 10_000
+    // 将 vrms_x100 = vrms_code×v_gain/1000, irms_x1000 = irms_code×i_gain/1000 代入：
+    //   active_code × v_gain × i_gain / 1_000_000 / 10_000
+    //   = active_code × v_gain × i_gain / 10_000_000_000
+    // 验证：1125721 × 1000 × 1000 / 10^10 ≈ 112.6 → 11.26W ✓
     r.active_power_x10 = ((active_code as u64)
         * (v_gain_x1000 as u64)
         * (i_gain_x1000 as u64)
-        * 10
-        / 1_000_000) as u32;
+        / 10_000_000_000u64) as u32;
 
     // 5. 视在功率 = Vrms × Irms
     //    vrms_x100 / 100 × irms_x1000 / 1000 = vrms × irms (VA)
