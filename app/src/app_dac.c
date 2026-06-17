@@ -35,10 +35,19 @@ static const uint16_t s_sine_fullscale[APP_DAC_WAVEFORM_SAMPLES] = {
     1265U, 1358U, 1454U, 1551U, 1649U, 1748U, 1847U, 1948U
 };
 
-// DAC 通道 1 的 DMA 循环播放波形缓冲区
+// DAC 通道 1 的 DMA 循环播放波形缓冲区（SINGLE 模式使用）
 static uint16_t s_dac_ch1[APP_DAC_WAVEFORM_SAMPLES];
-// DAC 通道 2 的 DMA 循环播放波形缓冲区
+// DAC 通道 2 的 DMA 循环播放波形缓冲区（SINGLE 模式使用）
 static uint16_t s_dac_ch2[APP_DAC_WAVEFORM_SAMPLES];
+
+/**
+ * @brief DUAL 模式下使用的交错缓冲区。
+ *
+ * 每个 32 位元素包含 CH1（低 16 位）和 CH2（高 16 位），
+ * 通过 DAC->DHR12RD 一次 DMA 搬运同时更新两个 DAC 通道，
+ * 避免使用两条独立 DMA 通道可能产生的冲突。
+ */
+static uint32_t s_dac_dual[APP_DAC_WAVEFORM_SAMPLES];
 
 // 当前 DAC 输出配置。外部一次写入整份配置，不用分别猜每个字段会不会重建
 // 波形、DMA 或定时器。
@@ -113,6 +122,9 @@ static void rebuild_buffers(void)
             // 通道 2 读取满幅表时使用的相位偏移下标
             uint16_t j = (uint16_t)((i + phase_index) % APP_DAC_WAVEFORM_SAMPLES);
             s_dac_ch2[i] = scale_sample(s_sine_fullscale[j], s_config.amplitude);
+            // DHR12RD 双通道寄存器：低 16 位 = CH1，高 16 位 = CH2
+            s_dac_dual[i] = (uint32_t)s_dac_ch1[i] |
+                            ((uint32_t)s_dac_ch2[i] << 16U);
         } else {
             s_dac_ch2[i] = APP_DAC_MID_CODE;
         }
@@ -160,28 +172,47 @@ static void configure_dma(void)
     // DAC DMA 通道通用配置结构体
     DMA_InitTypeDef dma;
 
-    // DMA2_Channel3 对应 DAC 通道 1。Circular 模式会反复播放 s_dac_ch1，
-    // CPU 不需要在主循环里一个点一个点写 DAC。
+    // 先停掉两条通道，避免残留配置干扰
     DMA_DeInit(DMA2_Channel3);
-    DMA_StructInit(&dma);
-    dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12R1;
-    dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_ch1;
-    dma.DMA_DIR = DMA_DIR_PeripheralDST;
-    dma.DMA_BufferSize = APP_DAC_WAVEFORM_SAMPLES;
-    dma.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-    dma.DMA_MemoryInc = DMA_MemoryInc_Enable;
-    dma.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-    dma.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-    dma.DMA_Mode = DMA_Mode_Circular;
-    dma.DMA_Priority = DMA_Priority_High;
-    dma.DMA_M2M = DMA_M2M_Disable;
-    DMA_Init(DMA2_Channel3, &dma);
-
-    // DAC 通道 2 用 DMA2_Channel4，配置基本相同，只换寄存器和波形表。
     DMA_DeInit(DMA2_Channel4);
-    dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12R2;
-    dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_ch2;
-    DMA_Init(DMA2_Channel4, &dma);
+
+    if (s_config.mode == APP_DAC_MODE_DUAL) {
+        // DUAL 模式：只用 DMA2_Channel3，目标寄存器是 DAC->DHR12RD（32 位），
+        // 一次 DMA 搬运同时写入 CH1（低 16 位）和 CH2（高 16 位）。
+        DMA_StructInit(&dma);
+        dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12RD;
+        dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_dual;
+        dma.DMA_DIR = DMA_DIR_PeripheralDST;
+        dma.DMA_BufferSize = APP_DAC_WAVEFORM_SAMPLES;
+        dma.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+        dma.DMA_MemoryInc = DMA_MemoryInc_Enable;
+        dma.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Word;
+        dma.DMA_MemoryDataSize = DMA_MemoryDataSize_Word;
+        dma.DMA_Mode = DMA_Mode_Circular;
+        dma.DMA_Priority = DMA_Priority_High;
+        dma.DMA_M2M = DMA_M2M_Disable;
+        DMA_Init(DMA2_Channel3, &dma);
+    } else {
+        // SINGLE 模式：DMA2_Channel3 → DHR12R1（CH1 正弦波），
+        // DMA2_Channel4 → DHR12R2（CH2 保持中点电压）。
+        DMA_StructInit(&dma);
+        dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12R1;
+        dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_ch1;
+        dma.DMA_DIR = DMA_DIR_PeripheralDST;
+        dma.DMA_BufferSize = APP_DAC_WAVEFORM_SAMPLES;
+        dma.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+        dma.DMA_MemoryInc = DMA_MemoryInc_Enable;
+        dma.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+        dma.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+        dma.DMA_Mode = DMA_Mode_Circular;
+        dma.DMA_Priority = DMA_Priority_High;
+        dma.DMA_M2M = DMA_M2M_Disable;
+        DMA_Init(DMA2_Channel3, &dma);
+
+        dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12R2;
+        dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_ch2;
+        DMA_Init(DMA2_Channel4, &dma);
+    }
 }
 
 /**
@@ -210,8 +241,12 @@ static void apply_output_config(void)
     TIM_SetAutoreload(TIM6, arr);
     TIM_GenerateEvent(TIM6, TIM_EventSource_Update);
 
+    // DUAL 模式只用 DMA2_Channel3（通过 DHR12RD 同时写两通道），
+    // SINGLE 模式两条 DMA 都开。
     DMA_Cmd(DMA2_Channel3, ENABLE);
-    DMA_Cmd(DMA2_Channel4, ENABLE);
+    if (s_config.mode == APP_DAC_MODE_SINGLE) {
+        DMA_Cmd(DMA2_Channel4, ENABLE);
+    }
     TIM_Cmd(TIM6, ENABLE);
 }
 
