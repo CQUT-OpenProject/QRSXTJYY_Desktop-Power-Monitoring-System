@@ -2,12 +2,14 @@
  * @file app_adc.h
  * @brief ADC 采样与电气参数计算模块接口。
  *
+ * 三层快照架构（解决 DMA ISR / 主循环 / LCD-串口 数据竞争）：
+ *   第一层  DMA HT/TC 中断 → deinterleave_frame() 写 ISR 双缓冲
+ *   第二层  app_adc_task() 极短临界区取 ready idx → 工作帧 → Rust → 显示帧
+ *   第三层  app_adc_get_samples() / app_adc_calibrate_zero() 统一读显示帧
+ *
  * PC0/PC3/PC2 作为 ADC1_IN10/IN13/IN12，TIM3 TRGO 以 6400 Hz 触发 3 通道
  * 规则组扫描。DMA1_Channel1 以 2 倍帧长循环搬运，HT/TC 中断分别在半帧和
- * 整帧完成时解交错到三个独立通道数组并通知主循环。
- *
- * 主循环中的 app_adc_task() 检查新数据标志，将样点复制到局部缓冲区后调用
- * Rust 定点数算法库 pm_calc_electrical() 计算电参数并更新内部快照。
+ * 整帧完成时解交错到双缓冲并通知主循环。
  */
 #ifndef APP_ADC_H
 #define APP_ADC_H
@@ -92,8 +94,8 @@ void app_adc_init(void);
 /**
  * @brief ADC 模块周期任务，在主循环中调用。
  *
- * 检查 DMA TC 中断设置的 s_adc_fresh 标志，如果有新数据则复制到局部缓冲区、
- * 调用 Rust 算法库计算电参数并更新内部快照。
+ * 极短临界区（关中断仅取 ready 帧编号）→ 整帧复制到工作帧 → 调用 Rust 算法
+ * → 更新显示帧快照，供 LCD/串口/CAL ZERO 安全读取。
  */
 void app_adc_task(void);
 
@@ -113,18 +115,20 @@ void app_adc_dma1_ch1_irq_handler(void);
 const app_electrical_params_t *app_adc_get_params(void);
 
 /**
- * @brief 获取指定通道最近一轮的原始 ADC 样点数组。
+ * @brief 获取指定通道最近一轮的稳定样点快照（来自显示帧，不受 ISR 干扰）。
  *
  * @param channel 0 = 电压(PC0/ADC1_IN10), 1 = 电流(PC3/ADC1_IN13),
  *                2 = 漏电流(PC2/ADC1_IN12)
- * @return 指向 128 半字静态数组的指针，channel 非法时返回 NULL。
+ * @return 指向 128 半字静态数组的指针（持续有效，不受 ISR 写入影响），
+ *         channel 非法时返回 NULL。
  */
 const uint16_t *app_adc_get_samples(uint8_t channel);
 
 /**
  * @brief 执行零偏移校准。
  *
- * 用当前 s_adc_v/i/ilk 各 128 点的算术平均值更新内部 DC 偏移补偿值。
+ * 用显示帧（稳定快照）各 128 点的算术平均值更新内部 DC 偏移补偿值。
+ * 基于显示帧而非 ISR 缓冲，不受 DMA 中断写入干扰。
  * 实物流调零时通过 CAL ZERO 串口命令触发。
  */
 void app_adc_calibrate_zero(void);
