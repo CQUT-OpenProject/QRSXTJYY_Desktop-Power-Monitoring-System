@@ -188,11 +188,13 @@ pub extern "C" fn pm_calc_electrical(
 
     // 有功功率 → 物理量
     // gain_p = (v_gain/1000) × (i_gain/1000)
-    // active_power_x10 = code × gain_p × 10 = code × v_gain × i_gain × 10 / 1_000_000
-    r.active_power_x10 = active_code
-        .saturating_mul(v_gain_x1000 / 10)
-        .saturating_mul(i_gain_x1000)
-        / 100_000;
+    // active_power_x10 = code × v_gain × i_gain × 10 / 1_000_000
+    // 使用 u64 避免 active_code × gain 中间溢出 u32
+    r.active_power_x10 = ((active_code as u64)
+        * (v_gain_x1000 as u64)
+        * (i_gain_x1000 as u64)
+        * 10
+        / 1_000_000) as u32;
 
     // 5. 视在功率 = Vrms × Irms
     //    vrms_x100 / 100 × irms_x1000 / 1000 = vrms × irms (VA)
