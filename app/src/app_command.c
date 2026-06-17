@@ -1,5 +1,6 @@
 #include "app_command.h"
 
+#include "app_adc.h"
 #include "app_dac.h"
 #include "app_monitor_state.h"
 #include "app_pwm.h"
@@ -8,14 +9,13 @@
 #include <stdio.h>
 
 // LCD 菜单和串口命令都会改自动上报开关，所以这里只保存一份。
-static uint8_t s_auto_report_enabled = 1U;
+static uint8_t s_auto_report_enabled = 0U;
 
 /**
  * @brief 将 ASCII 小写字母转换为大写。
  */
 static char upper_char(char c)
 {
-    // 命令只用 ASCII 字符，手写大小写转换就够了。
     if (c >= 'a' && c <= 'z') {
         return (char)(c - ('a' - 'A'));
     }
@@ -56,8 +56,7 @@ static void normalize_command_line(char *cmd)
     // 当前命令字符串长度
     uint8_t len;
 
-    // 有些串口工具会把回车换行发成可见的 "\r"、"\n" 字符。
-    // 收到这种尾巴时也删掉，串口调试会省事一些。
+    // 移除换行符
     trim_trailing_space(cmd);
     while (1) {
         len = 0U;
@@ -188,6 +187,7 @@ static void add_help(app_command_result_t *result)
     add_response(result, "OK CMD REPORT ON|OFF, PWM SET <hz>");
     add_response(result, "OK CMD DAC SET MODE SINGLE|DUAL, DAC SET FREQ <hz>");
     add_response(result, "OK CMD DAC SET AMP <code>, DAC SET PHASE <deg>");
+    add_response(result, "OK CMD CAL ZERO");
 }
 
 /**
@@ -292,6 +292,16 @@ static void handle_dac_number(const char *value_text,
 }
 
 /**
+ * @brief 处理 CAL ZERO 命令：执行 ADC 零偏移校准。
+ */
+static void handle_cal_zero(app_command_result_t *result)
+{
+    app_adc_calibrate_zero();
+    result->monitor_changed = 1U;
+    add_response(result, "OK CAL ZERO DONE");
+}
+
+/**
  * @brief 初始化命令模块默认状态。
  */
 void app_command_init(void)
@@ -356,6 +366,8 @@ void app_command_handle_line(const char *line, app_command_result_t *result)
         handle_dac_number(cmd + (sizeof("DAC SET AMP ") - 1U), result, 1U);
     } else if (starts_with_ci(cmd, "DAC SET PHASE ") != 0U) {
         handle_dac_number(cmd + (sizeof("DAC SET PHASE ") - 1U), result, 2U);
+    } else if (equals_ci(cmd, "CAL ZERO") != 0U) {
+        handle_cal_zero(result);
     } else {
         add_response(result, "ERR BAD_COMMAND");
     }
@@ -394,16 +406,48 @@ void app_command_format_status(const app_monitor_state_t *state,
         return;
     }
 
-    snprintf(line,
-             line_size,
-             "OK STATUS MEAS=%lu.%02luHz PWM=%luHz REPORT=%s DAC_MODE=%s DAC_FREQ=%luHz DAC_AMP=%u DAC_PHASE=%u",
-             (unsigned long)(state->mains_frequency.frequency_x100 / 100U),
-             (unsigned long)(state->mains_frequency.frequency_x100 % 100U),
-             (unsigned long)state->pwm_output.frequency_hz,
-             s_auto_report_enabled != 0U ? "ON" : "OFF",
-             state->dac_output.config.mode == APP_DAC_MODE_DUAL ? "DUAL" : "SINGLE",
-             (unsigned long)state->dac_output.config.frequency_hz,
-             state->dac_output.config.amplitude,
-             state->dac_output.config.phase_degrees);
+    if (state->adc.params != 0) {
+        snprintf(line,
+                 line_size,
+                 "OK STATUS MEAS=%lu.%02luHz PWM=%luHz REPORT=%s "
+                 "DAC_MODE=%s DAC_FREQ=%luHz DAC_AMP=%u DAC_PHASE=%u "
+                 "VRMS=%lu.%02lu IRMS=%lu.%03lu ILK=%lu.%03lu "
+                 "P=%lu.%01lu S=%lu.%01lu PF=%lu.%03lu CAL=%s",
+                 (unsigned long)(state->mains_frequency.frequency_x100 / 100U),
+                 (unsigned long)(state->mains_frequency.frequency_x100 % 100U),
+                 (unsigned long)state->pwm_output.frequency_hz,
+                 s_auto_report_enabled != 0U ? "ON" : "OFF",
+                 state->dac_output.config.mode == APP_DAC_MODE_DUAL ? "DUAL" : "SINGLE",
+                 (unsigned long)state->dac_output.config.frequency_hz,
+                 state->dac_output.config.amplitude,
+                 state->dac_output.config.phase_degrees,
+                 (unsigned long)(state->adc.params->vrms_x100 / 100U),
+                 (unsigned long)(state->adc.params->vrms_x100 % 100U),
+                 (unsigned long)(state->adc.params->irms_x1000 / 1000U),
+                 (unsigned long)(state->adc.params->irms_x1000 % 1000U),
+                 (unsigned long)(state->adc.params->ilk_rms_x1000 / 1000U),
+                 (unsigned long)(state->adc.params->ilk_rms_x1000 % 1000U),
+                 (unsigned long)(state->adc.params->active_power_x10 / 10U),
+                 (unsigned long)(state->adc.params->active_power_x10 % 10U),
+                 (unsigned long)(state->adc.params->apparent_power_x10 / 10U),
+                 (unsigned long)(state->adc.params->apparent_power_x10 % 10U),
+                 (unsigned long)(state->adc.params->power_factor_x1000 / 1000U),
+                 (unsigned long)(state->adc.params->power_factor_x1000 % 1000U),
+                 state->adc.params->zero_calibrated != 0U ? "YES" : "NO");
+    } else {
+        snprintf(line,
+                 line_size,
+                 "OK STATUS MEAS=%lu.%02luHz PWM=%luHz REPORT=%s "
+                 "DAC_MODE=%s DAC_FREQ=%luHz DAC_AMP=%u DAC_PHASE=%u "
+                 "VRMS=NA",
+                 (unsigned long)(state->mains_frequency.frequency_x100 / 100U),
+                 (unsigned long)(state->mains_frequency.frequency_x100 % 100U),
+                 (unsigned long)state->pwm_output.frequency_hz,
+                 s_auto_report_enabled != 0U ? "ON" : "OFF",
+                 state->dac_output.config.mode == APP_DAC_MODE_DUAL ? "DUAL" : "SINGLE",
+                 (unsigned long)state->dac_output.config.frequency_hz,
+                 state->dac_output.config.amplitude,
+                 state->dac_output.config.phase_degrees);
+    }
     line[line_size - 1U] = '\0';
 }

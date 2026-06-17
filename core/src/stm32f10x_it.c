@@ -22,6 +22,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "app_capture.h"
+#include "app_adc.h"
 #include "app_protocol.h"
 #include "stm32f10x_it.h"
 
@@ -169,6 +170,15 @@ void USART1_IRQHandler(void)
    * 命令解析留到主循环执行。
    */
   app_protocol_usart1_irq_handler();
+}
+
+void DMA1_Channel1_IRQHandler(void)
+{
+  /*
+   * DMA1_Channel1 负责把 ADC1->DR 循环搬运到内存缓冲区。
+   * 每次 384 半字传输完成时进入这里，解交错到三通道数组。
+   */
+  app_adc_dma1_ch1_irq_handler();
 }
 
 /**

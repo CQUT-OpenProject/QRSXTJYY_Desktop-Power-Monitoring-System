@@ -24,6 +24,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 /* Uncomment/Comment the line below to enable/disable peripheral header file inclusion */
+#include "stm32f10x_adc.h"
 #include "stm32f10x_dac.h"
 #include "stm32f10x_dma.h"
 #include "stm32f10x_gpio.h"

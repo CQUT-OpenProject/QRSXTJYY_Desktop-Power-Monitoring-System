@@ -21,6 +21,7 @@ file(GLOB_RECURSE CMSIS_SOURCES CONFIGURE_DEPENDS "drivers/cmsis/*.c")
 set(FW_SOURCES
     drivers/STM32F10x_StdPeriph_Driver/src/misc.c
     drivers/STM32F10x_StdPeriph_Driver/src/stm32f10x_dac.c
+    drivers/STM32F10x_StdPeriph_Driver/src/stm32f10x_adc.c
     drivers/STM32F10x_StdPeriph_Driver/src/stm32f10x_dma.c
     drivers/STM32F10x_StdPeriph_Driver/src/stm32f10x_gpio.c
     drivers/STM32F10x_StdPeriph_Driver/src/stm32f10x_rcc.c

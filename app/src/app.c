@@ -7,6 +7,7 @@
  */
 #include "app.h"
 
+#include "app_adc.h"
 #include "app_capture.h"
 #include "app_command.h"
 #include "app_display.h"
@@ -15,6 +16,8 @@
 #include "app_protocol.h"
 #include "app_startup.h"
 #include "app_ui.h"
+
+#include "stm32f10x_usart.h"
 
 /**
  * @brief 初始化应用层所有启动项。
@@ -53,14 +56,30 @@ void app_run(void)
         // TIM2 中断只快速记下捕获时间。
         app_capture_task();
 
-        if (app_capture_take_report(&report_freq_x100) != 0U &&
-            app_command_get_auto_report_enabled() != 0U) {
+        // ADC 模块：检查 ISR 标记的新数据，触发电参数计算。
+        app_adc_task();
+
+        if (app_command_get_auto_report_enabled() != 0U &&
+            app_capture_take_report(&report_freq_x100) != 0U) {
             // take_report 只表示该发一条自动上报了。上报内容重新读快照生成，
             // 和 STATUS? 用同一种格式。
             (void)report_freq_x100;
+
+            // 调试标记：报告路径到达
+            {
+                while ((USART1->SR & USART_FLAG_TXE) == 0U) {}
+                USART1->DR = (uint16_t)'S';
+            }
+
             app_monitor_state_read(&display_state);
             app_command_format_status(&display_state, report_line, sizeof(report_line));
             app_protocol_send_report_line(report_line);
+
+            // 调试标记：报告发送完成
+            {
+                while ((USART1->SR & USART_FLAG_TXE) == 0U) {}
+                USART1->DR = (uint16_t)'D';
+            }
         }
 
         // 按键扫描返回的是消抖后的“事件”，不是 GPIO 当前电平。

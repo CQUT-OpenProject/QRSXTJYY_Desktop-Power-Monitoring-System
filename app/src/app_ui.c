@@ -6,12 +6,13 @@
 #define APP_UI_PWM_STEP_HZ 1U
 #define APP_UI_PWM_MIN_HZ 1U
 #define APP_UI_PWM_MAX_HZ 100000U
-#define APP_UI_MENU_ITEMS 3U
+#define APP_UI_MENU_ITEMS 4U
 #define APP_UI_PWM_ITEMS 2U
 #define APP_UI_MEASURE_ITEMS 2U
 #define APP_UI_DA_ITEMS 1U
+#define APP_UI_ADC_ITEMS 1U
 
-// 菜单状态只有这一份。按键事件改它，显示代码读它。
+// 菜单状态
 static app_ui_state_t s_state;
 
 /**
@@ -28,6 +29,9 @@ static uint8_t item_count_for_page(app_ui_page_t page)
     }
     if (page == APP_UI_PAGE_DA) {
         return APP_UI_DA_ITEMS;
+    }
+    if (page == APP_UI_PAGE_ADC) {
+        return APP_UI_ADC_ITEMS;
     }
     return APP_UI_MENU_ITEMS;
 }
@@ -53,7 +57,6 @@ static void move_cursor(int8_t direction)
  */
 static void adjust_pwm(int8_t direction)
 {
-    // 编辑 PWM 频率时每次只改 1 Hz，演示时更容易观察。
     if (direction > 0) {
         if (s_state.pwm_edit_frequency_hz < APP_UI_PWM_MAX_HZ) {
             s_state.pwm_edit_frequency_hz += APP_UI_PWM_STEP_HZ;
@@ -95,13 +98,16 @@ static void enter_menu(void)
  */
 static void handle_menu_confirm(void)
 {
-    // 主菜单：第 0 项进入 PWM，第 1 项进入测频，第 2 项进入 DA 波形页。
+    // 主菜单：第 0 项进入 PWM，第 1 项进入测频，第 2 项进入 DA 波形页，
+    // 第 3 项进入电参数测量页。
     if (s_state.cursor == 0U) {
         s_state.page = APP_UI_PAGE_PWM;
     } else if (s_state.cursor == 1U) {
         s_state.page = APP_UI_PAGE_MEASURE;
-    } else {
+    } else if (s_state.cursor == 2U) {
         s_state.page = APP_UI_PAGE_DA;
+    } else {
+        s_state.page = APP_UI_PAGE_ADC;
     }
     s_state.cursor = 0U;
     s_state.editing = 0U;
@@ -130,6 +136,8 @@ static void handle_page_confirm(void)
             enter_menu();
         }
     } else if (s_state.page == APP_UI_PAGE_DA) {
+        enter_menu();
+    } else if (s_state.page == APP_UI_PAGE_ADC) {
         enter_menu();
     }
 }

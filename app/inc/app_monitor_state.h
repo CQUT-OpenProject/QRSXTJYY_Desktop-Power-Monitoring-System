@@ -6,6 +6,7 @@
 #define APP_MONITOR_STATE_H
 
 #include "app_dac.h"
+#include "app_adc.h"
 
 #include <stdint.h>
 
@@ -18,6 +19,28 @@ typedef struct {
     /** PA8/TIM1_CH1 当前设置的 PWM 测试频率，单位 Hz。 */
     uint32_t frequency_hz;
 } app_monitor_pwm_output_t;
+
+/**
+ * @brief 单个 ADC 通道的样点引用。
+ *
+ * 不复制数据，只持有指针和长度，指向 app_adc 模块内的静态数组。
+ */
+typedef struct {
+    /** 指向通道样点数组的指针（128 半字）。 */
+    const uint16_t *samples;
+    /** 样点数（固定为 APP_ADC_SAMPLES）。 */
+    uint16_t count;
+} app_monitor_adc_channel_t;
+
+/**
+ * @brief ADC 采样和电参数汇总，供 LCD 和串口读取。
+ */
+typedef struct {
+    /** 三通道（VL / iL / iLK）原始样点引用。 */
+    app_monitor_adc_channel_t channels[3];
+    /** 最近一次计算得到的电参数（只读指针）。 */
+    const app_electrical_params_t *params;
+} app_monitor_adc_t;
 
 /**
  * @brief LCD 和串口共同读取的一份监控快照。
@@ -37,6 +60,9 @@ typedef struct {
 
     /** PA4/PA5 DAC 波形输出状态和波形预览。 */
     app_dac_output_t dac_output;
+
+    /** PC0/PC1/PC2 ADC 采样与电参数。 */
+    app_monitor_adc_t adc;
 } app_monitor_state_t;
 
 /**

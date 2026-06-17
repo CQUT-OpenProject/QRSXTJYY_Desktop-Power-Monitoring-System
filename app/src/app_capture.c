@@ -9,6 +9,7 @@
 #define APP_CAPTURE_COUNTER_HZ 1000000U
 #define APP_CAPTURE_TIMEOUT_US 2000000U
 #define APP_CAPTURE_REPORT_US 1000000U
+#define APP_CAPTURE_CHANGE_REPORT_MIN_US 200000U
 
 // TIM2 是 16 位计数器，硬件计数到 0xFFFF 后会回到 0。
 // s_overflows 记录溢出次数，用来拼出一个 32 位“微秒时间”。
@@ -121,6 +122,10 @@ void app_capture_task(void)
     uint32_t now = app_capture_get_time_us();
     // 当前测得的频率快照，单位 Hz * 100
     uint32_t freq = s_frequency_x100;
+    // 是否到了 1 秒周期上报时刻
+    uint8_t period_due;
+    // 频率是否发生变化且距离上次上报已过 200 ms
+    uint8_t changed_due;
 
     // 超过 2 秒没有新边沿，就认为输入频率为 0。
     // 拔掉输入线后，LCD 和串口不会一直显示旧频率。
@@ -130,15 +135,17 @@ void app_capture_task(void)
         freq = 0U;
     }
 
-    // 频率有变化，或者到达固定上报周期时，才准备一条上报。
-    // app_run 之后会调用 app_capture_take_report 取走它。
-    if (((now - s_last_report_us) >= APP_CAPTURE_REPORT_US) ||
-        (freq != s_last_reported_freq_x100 && s_last_report_us == 0U)) {
-        if (freq != s_last_reported_freq_x100) {
-            s_report_freq_x100 = freq;
-            s_report_pending = 1U;
-            s_last_reported_freq_x100 = freq;
-        }
+    // 周期上报：每 1 秒强制产生一次报告，保证稳定频率也能持续上报。
+    // 变化上报：频率值变化且距上次上报已过 200 ms，防止抖动刷屏。
+    // 两个条件任一满足，即将当前频率写入待发送队列。
+    period_due = (uint8_t)((now - s_last_report_us) >= APP_CAPTURE_REPORT_US);
+    changed_due = (uint8_t)((freq != s_last_reported_freq_x100) &&
+                            ((now - s_last_report_us) >= APP_CAPTURE_CHANGE_REPORT_MIN_US));
+
+    if (period_due != 0U || changed_due != 0U) {
+        s_report_freq_x100 = freq;
+        s_report_pending = 1U;
+        s_last_reported_freq_x100 = freq;
         s_last_report_us = now;
     }
 }

@@ -20,7 +20,10 @@ typedef enum {
     APP_UI_PAGE_MEASURE,
 
     /** DA 波形监看页。 */
-    APP_UI_PAGE_DA
+    APP_UI_PAGE_DA,
+
+    /** AC 电参数测量页。 */
+    APP_UI_PAGE_ADC
 } app_ui_page_t;
 
 /**

@@ -174,6 +174,91 @@ static void draw_dac_axes(uint16_t left,
 }
 
 /**
+ * @brief 渲染电参数测量页面。
+ *
+ * 显示由 Rust 算法库计算得到的 Vrms、Irms、Ilk_rms、P、S、PF，
+ * 以及电压通道的原始 ADC min/max 摘要。
+ */
+static void render_adc_page(const app_monitor_state_t *state, const app_ui_state_t *ui)
+{
+    char line[64];
+    const app_electrical_params_t *p = state->adc.params;
+    uint16_t y = 56U;
+
+    show_text_line(10U, 20U, "AC Measure", CYAN);
+
+    if (p == 0) {
+        show_text_line(18U, y, "No data", GRAY);
+        show_menu_item(ui->cursor == 0U, 268U, "Back Home");
+        return;
+    }
+
+    // Vrms
+    snprintf(line, sizeof(line), "Vrms:   %lu.%02lu V",
+             (unsigned long)(p->vrms_x100 / 100U),
+             (unsigned long)(p->vrms_x100 % 100U));
+    show_text_line(18U, y, line, WHITE);
+    y = (uint16_t)(y + 22U);
+
+    // Irms
+    snprintf(line, sizeof(line), "Irms:   %lu.%03lu A",
+             (unsigned long)(p->irms_x1000 / 1000U),
+             (unsigned long)(p->irms_x1000 % 1000U));
+    show_text_line(18U, y, line, WHITE);
+    y = (uint16_t)(y + 22U);
+
+    // Ilk_rms
+    snprintf(line, sizeof(line), "Ilk:    %lu.%03lu A",
+             (unsigned long)(p->ilk_rms_x1000 / 1000U),
+             (unsigned long)(p->ilk_rms_x1000 % 1000U));
+    show_text_line(18U, y, line, WHITE);
+    y = (uint16_t)(y + 22U);
+
+    // Active power
+    snprintf(line, sizeof(line), "P:      %lu.%01lu W",
+             (unsigned long)(p->active_power_x10 / 10U),
+             (unsigned long)(p->active_power_x10 % 10U));
+    show_text_line(18U, y, line, WHITE);
+    y = (uint16_t)(y + 22U);
+
+    // Apparent power
+    snprintf(line, sizeof(line), "S:      %lu.%01lu VA",
+             (unsigned long)(p->apparent_power_x10 / 10U),
+             (unsigned long)(p->apparent_power_x10 % 10U));
+    show_text_line(18U, y, line, WHITE);
+    y = (uint16_t)(y + 22U);
+
+    // Power factor
+    snprintf(line, sizeof(line), "PF:     %lu.%03lu",
+             (unsigned long)(p->power_factor_x1000 / 1000U),
+             (unsigned long)(p->power_factor_x1000 % 1000U));
+    show_text_line(18U, y, line, WHITE);
+    y = (uint16_t)(y + 22U);
+
+    // Calibration status
+    snprintf(line, sizeof(line), "CAL:    %s",
+             p->zero_calibrated != 0U ? "YES" : "NO");
+    show_text_line(18U, (uint16_t)(y + 10U), line, GRAY);
+    y = (uint16_t)(y + 32U);
+
+    // Raw ADC summary for voltage channel
+    if (state->adc.channels[0].samples != 0) {
+        uint16_t min_code = 4095U;
+        uint16_t max_code = 0U;
+        uint16_t i;
+        for (i = 0U; i < state->adc.channels[0].count; i++) {
+            uint16_t v = state->adc.channels[0].samples[i];
+            if (v < min_code) { min_code = v; }
+            if (v > max_code) { max_code = v; }
+        }
+        snprintf(line, sizeof(line), "V ADC min=%u max=%u", min_code, max_code);
+        show_text_line(18U, y, line, GRAY);
+    }
+
+    show_menu_item(ui->cursor == 0U, 268U, "Back Home");
+}
+
+/**
  * @brief 渲染主菜单页面。
  */
 static void render_main_menu(const app_ui_state_t *ui)
@@ -182,6 +267,7 @@ static void render_main_menu(const app_ui_state_t *ui)
     show_menu_item(ui->cursor == 0U, 70U, "Square Wave");
     show_menu_item(ui->cursor == 1U, 102U, "Freq Measure");
     show_menu_item(ui->cursor == 2U, 134U, "DA Wave");
+    show_menu_item(ui->cursor == 3U, 166U, "AC Measure");
 }
 
 /**
@@ -313,6 +399,8 @@ static void refresh_values(const app_monitor_state_t *state, const app_ui_state_
         render_measure_page(state, ui);
     } else if (ui->page == APP_UI_PAGE_DA) {
         render_da_page(state, ui);
+    } else if (ui->page == APP_UI_PAGE_ADC) {
+        render_adc_page(state, ui);
     } else {
         render_main_menu(ui);
     }

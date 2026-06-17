@@ -1,5 +1,6 @@
 #include "app_monitor_state.h"
 
+#include "app_adc.h"
 #include "app_capture.h"
 #include "app_dac.h"
 #include "app_pwm.h"
@@ -25,4 +26,14 @@ void app_monitor_state_read(app_monitor_state_t *state)
 
     // DAC 输出状态已经包含配置和预览波形，这里直接复制进快照。
     app_dac_read_output(&state->dac_output);
+
+    // ADC 样点只持有指针，不复制数据。
+    {
+        uint8_t ch;
+        for (ch = 0U; ch < 3U; ch++) {
+            state->adc.channels[ch].samples = app_adc_get_samples(ch);
+            state->adc.channels[ch].count   = APP_ADC_SAMPLES;
+        }
+    }
+    state->adc.params = app_adc_get_params();
 }

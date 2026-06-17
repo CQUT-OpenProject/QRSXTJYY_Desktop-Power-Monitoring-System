@@ -1,5 +1,6 @@
 #include "app_startup.h"
 
+#include "app_adc.h"
 #include "app_capture.h"
 #include "app_command.h"
 #include "app_dac.h"
@@ -29,6 +30,7 @@ void app_startup_init(void)
     app_pwm_init();
     app_capture_init();
     app_dac_init();
+    app_adc_init();
     app_command_init();
     app_ui_init();
 }
