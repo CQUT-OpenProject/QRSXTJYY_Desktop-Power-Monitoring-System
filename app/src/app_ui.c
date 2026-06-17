@@ -1,11 +1,10 @@
 #include "app_ui.h"
 
 #include "app_command.h"
+#include "app_config.h"
 #include "app_pwm.h"
 
 #define APP_UI_PWM_STEP_HZ 1U
-#define APP_UI_PWM_MIN_HZ 1U
-#define APP_UI_PWM_MAX_HZ 100000U
 #define APP_UI_MENU_ITEMS 4U
 #define APP_UI_PWM_ITEMS 2U
 #define APP_UI_MEASURE_ITEMS 2U
@@ -58,10 +57,10 @@ static void move_cursor(int8_t direction)
 static void adjust_pwm(int8_t direction)
 {
     if (direction > 0) {
-        if (s_state.pwm_edit_frequency_hz < APP_UI_PWM_MAX_HZ) {
+        if (s_state.pwm_edit_frequency_hz < APP_PWM_MAX_HZ) {
             s_state.pwm_edit_frequency_hz += APP_UI_PWM_STEP_HZ;
         }
-    } else if (s_state.pwm_edit_frequency_hz > APP_UI_PWM_MIN_HZ) {
+    } else if (s_state.pwm_edit_frequency_hz > APP_PWM_MIN_HZ) {
         s_state.pwm_edit_frequency_hz -= APP_UI_PWM_STEP_HZ;
     }
 }

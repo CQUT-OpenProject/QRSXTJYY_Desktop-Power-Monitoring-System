@@ -30,14 +30,8 @@
 #include "stm32f10x_tim.h"
 
 /* ================================================================== */
-/* 硬件常量                                                           */
+/* 常量（来自 app_config.h）                                          */
 /* ================================================================== */
-
-/** APB1 定时器时钟频率，STM32F103 默认 APB1=36MHz 时定时器时钟=72MHz。 */
-#define APP_ADC_TIMER_CLOCK_HZ 72000000U
-
-/** ADC 触发采样率：50 Hz × 128 点/周期 = 6400 组/秒。 */
-#define APP_ADC_SAMPLE_RATE_HZ 6400U
 
 /** DMA 缓冲区帧长 = 通道数 × 每通道点数 = 3 × 128 = 384 半字。 */
 #define APP_ADC_FRAME_HALFWORDS (APP_ADC_SAMPLES * APP_ADC_CHANNELS)
@@ -110,7 +104,7 @@ static void calc_adc_timer_params(uint32_t rate_hz,
 {
     // 单次触发周期需要的定时器 tick 数（四舍五入）
     uint32_t target_ticks =
-        (APP_ADC_TIMER_CLOCK_HZ + (rate_hz / 2U)) / rate_hz;
+        (APP_APB1_TIMER_CLK_HZ + (rate_hz / 2U)) / rate_hz;
     // 先算需要的预分频器值
     uint32_t prescaler = (target_ticks + 65535U) / 65536U;
     // 周期计数值（ARR + 1 即实际一个触发周期的 tick 数）
@@ -123,7 +117,7 @@ static void calc_adc_timer_params(uint32_t rate_hz,
         prescaler = 65535U;
     }
 
-    period = ((APP_ADC_TIMER_CLOCK_HZ / (prescaler + 1U)) + (rate_hz / 2U)) / rate_hz;
+    period = ((APP_APB1_TIMER_CLK_HZ / (prescaler + 1U)) + (rate_hz / 2U)) / rate_hz;
     if (period < 2U) {
         period = 2U;
     }
@@ -198,15 +192,15 @@ void app_adc_init(void)
         // 规则组顺序：Rank1=IN10(VL), Rank2=IN13(iL), Rank3=IN12(iLK)
         // 每通道 239.5 周期采样时间 ≈ 21 μs @ 12 MHz，降低外部阻抗影响
         ADC_RegularChannelConfig(ADC1,
-                                 ADC_Channel_10,
+                                 APP_ADC_V_CHANNEL,
                                  1,
                                  ADC_SampleTime_239Cycles5);
         ADC_RegularChannelConfig(ADC1,
-                                 ADC_Channel_13,
+                                 APP_ADC_I_CHANNEL,
                                  2,
                                  ADC_SampleTime_239Cycles5);
         ADC_RegularChannelConfig(ADC1,
-                                 ADC_Channel_12,
+                                 APP_ADC_ILK_CHANNEL,
                                  3,
                                  ADC_SampleTime_239Cycles5);
 

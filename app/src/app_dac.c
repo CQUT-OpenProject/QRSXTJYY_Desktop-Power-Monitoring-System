@@ -1,22 +1,17 @@
 #include "app_dac.h"
 
+#include "app_config.h"
 #include "stm32f10x_dac.h"
 #include "stm32f10x_dma.h"
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_rcc.h"
 #include "stm32f10x_tim.h"
 
-#define APP_DAC_TIMER_CLOCK_HZ 72000000U
-#define APP_DAC_DEFAULT_HZ 50U
-#define APP_DAC_MIN_HZ 1U
-#define APP_DAC_MAX_HZ 1000U
-#define APP_DAC_DEFAULT_AMP 1500U
-#define APP_DAC_MAX_AMP 2047U
-#define APP_DAC_MID_CODE 2048U
+/* 硬件常量来自 app_config.h：APP_APB1_TIMER_CLK_HZ / APP_DAC_TABLE_SIZE 等 */
 
 // 一整周期 128 点的满幅正弦表，数值范围是 0..4095。
 // 后面按用户设置的 amplitude 缩放，不在运行时计算 sin()。
-static const uint16_t s_sine_fullscale[APP_DAC_WAVEFORM_SAMPLES] = {
+static const uint16_t s_sine_fullscale[APP_DAC_TABLE_SIZE] = {
     2048U, 2148U, 2249U, 2348U, 2447U, 2545U, 2642U, 2738U,
     2831U, 2923U, 3013U, 3100U, 3185U, 3267U, 3347U, 3423U,
     3495U, 3565U, 3630U, 3692U, 3750U, 3804U, 3853U, 3898U,
@@ -36,9 +31,9 @@ static const uint16_t s_sine_fullscale[APP_DAC_WAVEFORM_SAMPLES] = {
 };
 
 // DAC 通道 1 的 DMA 循环播放波形缓冲区（SINGLE 模式使用）
-static uint16_t s_dac_ch1[APP_DAC_WAVEFORM_SAMPLES];
+static uint16_t s_dac_ch1[APP_DAC_TABLE_SIZE];
 // DAC 通道 2 的 DMA 循环播放波形缓冲区（SINGLE 模式使用）
-static uint16_t s_dac_ch2[APP_DAC_WAVEFORM_SAMPLES];
+static uint16_t s_dac_ch2[APP_DAC_TABLE_SIZE];
 
 /**
  * @brief DUAL 模式下使用的交错缓冲区。
@@ -47,14 +42,14 @@ static uint16_t s_dac_ch2[APP_DAC_WAVEFORM_SAMPLES];
  * 通过 DAC->DHR12RD 一次 DMA 搬运同时更新两个 DAC 通道，
  * 避免使用两条独立 DMA 通道可能产生的冲突。
  */
-static uint32_t s_dac_dual[APP_DAC_WAVEFORM_SAMPLES];
+static uint32_t s_dac_dual[APP_DAC_TABLE_SIZE];
 
 // 当前 DAC 输出配置。外部一次写入整份配置，不用分别猜每个字段会不会重建
 // 波形、DMA 或定时器。
 static app_dac_config_t s_config = {
     APP_DAC_MODE_SINGLE,
-    APP_DAC_DEFAULT_HZ,
-    APP_DAC_DEFAULT_AMP,
+    APP_DAC_DEFAULT_FREQ_HZ,
+    APP_DAC_DEFAULT_AMPLITUDE,
     0U
 };
 
@@ -67,8 +62,8 @@ static uint32_t clamp_frequency(uint32_t hz)
     if (hz < APP_DAC_MIN_HZ) {
         return APP_DAC_MIN_HZ;
     }
-    if (hz > APP_DAC_MAX_HZ) {
-        return APP_DAC_MAX_HZ;
+    if (hz > APP_DAC_MAX_FREQ_HZ) {
+        return APP_DAC_MAX_FREQ_HZ;
     }
     return hz;
 }
@@ -112,15 +107,15 @@ static void rebuild_buffers(void)
     uint16_t i;
     // 通道 2 相位偏移对应的样点偏移量
     uint16_t phase_index =
-        (uint16_t)(((uint32_t)s_config.phase_degrees * APP_DAC_WAVEFORM_SAMPLES) / 360U);
+        (uint16_t)(((uint32_t)s_config.phase_degrees * APP_DAC_TABLE_SIZE) / 360U);
 
     // CH1 始终输出正弦波；CH2 在 DUAL 模式下输出带相位偏移的正弦波，
     // 在 SINGLE 模式下保持 2048，也就是 DAC 中点电压。
-    for (i = 0U; i < APP_DAC_WAVEFORM_SAMPLES; i++) {
+    for (i = 0U; i < APP_DAC_TABLE_SIZE; i++) {
         s_dac_ch1[i] = scale_sample(s_sine_fullscale[i], s_config.amplitude);
         if (s_config.mode == APP_DAC_MODE_DUAL) {
             // 通道 2 读取满幅表时使用的相位偏移下标
-            uint16_t j = (uint16_t)((i + phase_index) % APP_DAC_WAVEFORM_SAMPLES);
+            uint16_t j = (uint16_t)((i + phase_index) % APP_DAC_TABLE_SIZE);
             s_dac_ch2[i] = scale_sample(s_sine_fullscale[j], s_config.amplitude);
             // DHR12RD 双通道寄存器：低 16 位 = CH1，高 16 位 = CH2
             s_dac_dual[i] = (uint32_t)s_dac_ch1[i] |
@@ -139,7 +134,7 @@ static void calc_timer_params(uint32_t sample_rate_hz, uint16_t *psc, uint16_t *
     // TIM6 每次 Update 触发 DMA 写一个 DAC 采样点。
     // 所以采样率 = 波形频率 * 每周期采样点数。
     // 目标采样周期需要的定时器 tick 数
-    uint32_t target_ticks = (APP_DAC_TIMER_CLOCK_HZ + (sample_rate_hz / 2U)) / sample_rate_hz;
+    uint32_t target_ticks = (APP_APB1_TIMER_CLK_HZ + (sample_rate_hz / 2U)) / sample_rate_hz;
     // TIM6 预分频寄存器值，写入时对应 PSC
     uint32_t prescaler = (target_ticks + 65535U) / 65536U;
     // TIM6 一个采样周期内的计数点数
@@ -152,7 +147,7 @@ static void calc_timer_params(uint32_t sample_rate_hz, uint16_t *psc, uint16_t *
         prescaler = 65535U;
     }
 
-    period = ((APP_DAC_TIMER_CLOCK_HZ / (prescaler + 1U)) + (sample_rate_hz / 2U)) / sample_rate_hz;
+    period = ((APP_APB1_TIMER_CLK_HZ / (prescaler + 1U)) + (sample_rate_hz / 2U)) / sample_rate_hz;
     if (period < 2U) {
         period = 2U;
     }
@@ -183,7 +178,7 @@ static void configure_dma(void)
         dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12RD;
         dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_dual;
         dma.DMA_DIR = DMA_DIR_PeripheralDST;
-        dma.DMA_BufferSize = APP_DAC_WAVEFORM_SAMPLES;
+        dma.DMA_BufferSize = APP_DAC_TABLE_SIZE;
         dma.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
         dma.DMA_MemoryInc = DMA_MemoryInc_Enable;
         dma.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Word;
@@ -199,7 +194,7 @@ static void configure_dma(void)
         dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12R1;
         dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_ch1;
         dma.DMA_DIR = DMA_DIR_PeripheralDST;
-        dma.DMA_BufferSize = APP_DAC_WAVEFORM_SAMPLES;
+        dma.DMA_BufferSize = APP_DAC_TABLE_SIZE;
         dma.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
         dma.DMA_MemoryInc = DMA_MemoryInc_Enable;
         dma.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
@@ -225,7 +220,7 @@ static void apply_output_config(void)
     // TIM6 自动重装载寄存器值
     uint16_t arr;
     // DAC 每秒输出的采样点数
-    uint32_t sample_rate_hz = s_config.frequency_hz * APP_DAC_WAVEFORM_SAMPLES;
+    uint32_t sample_rate_hz = s_config.frequency_hz * APP_DAC_TABLE_SIZE;
 
     // 改波形参数前先停 TIM6 和 DMA，防止 DMA 一边读表，一边表被改写。
     TIM_Cmd(TIM6, DISABLE);
@@ -357,8 +352,8 @@ void app_dac_read_output(app_dac_output_t *output)
     // 这里复制一份波形表给调用者。调用者改不到 DMA 正在播放的
     // s_dac_ch1/s_dac_ch2。
     output->config = s_config;
-    output->waveform_sample_count = APP_DAC_WAVEFORM_SAMPLES;
-    for (i = 0U; i < APP_DAC_WAVEFORM_SAMPLES; i++) {
+    output->waveform_sample_count = APP_DAC_TABLE_SIZE;
+    for (i = 0U; i < APP_DAC_TABLE_SIZE; i++) {
         output->waveform_ch1[i] = s_dac_ch1[i];
         output->waveform_ch2[i] = s_dac_ch2[i];
     }

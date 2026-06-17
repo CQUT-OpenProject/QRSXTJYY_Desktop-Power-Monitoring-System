@@ -1,6 +1,7 @@
 #include "app_protocol.h"
 
 #include "app_command.h"
+#include "app_config.h"
 #include "misc.h"
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_rcc.h"
@@ -8,7 +9,6 @@
 
 #include <stdint.h>
 
-#define APP_PROTOCOL_BAUDRATE 115200U
 #define APP_PROTOCOL_SOF0 0xA5U
 #define APP_PROTOCOL_SOF1 0x5AU
 #define APP_PROTOCOL_VERSION 0x01U
@@ -401,7 +401,7 @@ void app_protocol_init(void)
     GPIO_Init(GPIOA, &gpio);
 
     USART_StructInit(&usart);
-    usart.USART_BaudRate = APP_PROTOCOL_BAUDRATE;
+    usart.USART_BaudRate = APP_UART_BAUDRATE;
     usart.USART_WordLength = USART_WordLength_8b;
     usart.USART_StopBits = USART_StopBits_1;
     usart.USART_Parity = USART_Parity_No;

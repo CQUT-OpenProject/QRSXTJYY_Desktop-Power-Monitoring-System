@@ -6,14 +6,7 @@
 #define APP_DAC_H
 
 #include <stdint.h>
-
-/**
- * @brief DAC 波形表长度。
- *
- * 128 个点组成一个完整正弦周期。点数再多一些会更平滑，但 DMA 每轮也要
- * 搬更多数据；本项目先用 128 点。
- */
-#define APP_DAC_WAVEFORM_SAMPLES 128U
+#include "app_config.h"
 
 typedef enum {
     /** 单通道正弦波输出，第二路保持中点电压。 */
@@ -49,8 +42,8 @@ typedef struct {
 typedef struct {
     app_dac_config_t config;
     uint16_t waveform_sample_count;
-    uint16_t waveform_ch1[APP_DAC_WAVEFORM_SAMPLES];
-    uint16_t waveform_ch2[APP_DAC_WAVEFORM_SAMPLES];
+    uint16_t waveform_ch1[APP_DAC_TABLE_SIZE];
+    uint16_t waveform_ch2[APP_DAC_TABLE_SIZE];
 } app_dac_output_t;
 
 /**

@@ -351,8 +351,8 @@ static void render_da_page(const app_monitor_state_t *state, const app_ui_state_
     // 当前可绘制的波形样点数
     uint16_t count = state->dac_output.waveform_sample_count;
 
-    if (count > APP_DAC_WAVEFORM_SAMPLES) {
-        count = APP_DAC_WAVEFORM_SAMPLES;
+    if (count > APP_DAC_TABLE_SIZE) {
+        count = APP_DAC_TABLE_SIZE;
     }
 
     show_text_line(10U, 20U, "DA Wave", CYAN);

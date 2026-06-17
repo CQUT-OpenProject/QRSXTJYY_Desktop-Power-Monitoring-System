@@ -15,38 +15,7 @@
 #define APP_ADC_H
 
 #include <stdint.h>
-
-/** 每周期（50 Hz 基波）采样点数。 */
-#define APP_ADC_SAMPLES 128U
-
-/** ADC 扫描通道数（VL / iL / iLK）。 */
-#define APP_ADC_CHANNELS 3U
-
-/* ------------------------------------------------------------------ */
-/* 校准增益宏（实物调试时按实际模拟前端参数调整）                       */
-/* ------------------------------------------------------------------ */
-
-/**
- * @brief 电压通道校准增益 × 1000。
- *
- * Vrms (0.01 V) = rms_code × GAIN_V / 1000
- * 默认 1000 表示 1:1（不做缩放），实物需按电压互感器/分压比设定。
- */
-#define APP_ADC_CALIB_V_GAIN_X1000    1000U
-
-/**
- * @brief 电流通道校准增益 × 1000。
- *
- * Irms (0.001 A) = rms_code × GAIN_I / 1000
- */
-#define APP_ADC_CALIB_I_GAIN_X1000    1000U
-
-/**
- * @brief 漏电流通道校准增益 × 1000。
- *
- * Ilk_rms (0.001 A) = rms_code × GAIN_ILK / 1000
- */
-#define APP_ADC_CALIB_ILK_GAIN_X1000  1000U
+#include "app_config.h"
 
 /* ------------------------------------------------------------------ */
 /* 类型定义                                                           */
