@@ -30,7 +30,7 @@
 #include "stm32f10x_tim.h"
 
 /* ================================================================== */
-/* 常量（来自 app_config.h）                                          */
+/* 常量                                                               */
 /* ================================================================== */
 
 /** DMA 缓冲区帧长 = 通道数 × 每通道点数 = 3 × 128 = 384 半字。 */
@@ -40,55 +40,50 @@
 /* 静态变量                                                           */
 /* ================================================================== */
 
-/**
- * @brief 三通道样点帧，用于双缓冲和快照传递。
- */
 typedef struct {
     uint16_t v[APP_ADC_SAMPLES];
     uint16_t i[APP_ADC_SAMPLES];
     uint16_t ilk[APP_ADC_SAMPLES];
 } app_adc_frame_t;
 
-/**
- * @brief DMA 2 倍帧长循环缓冲区。
- *
- * DMA 以 circular 模式持续写入，总长度 = 2 × 384 = 768 半字。
- * HT 中断处理前半帧 [0..384)，TC 中断处理后半帧 [384..768)。
- * 不需要修改 CMAR，也不会出现 ISR 读/DMA 写同一半区的竞争。
+/*
+ * DMA 2 倍帧长循环缓冲区（768 半字）。
+ * DMA 以 circular 模式持续写入，HT 处理前半帧 [0..384)，TC 处理后半帧 [384..768)。
+ * 不需要修改 CMAR，ISR 与 DMA 不会竞争同一半区。
  */
 static uint16_t s_dma_buffer[2U * APP_ADC_FRAME_HALFWORDS];
 
-/** ISR 双缓冲：ISR 写一端，主循环读另一端。 */
+/*
+ * 数据所有权：
+ * - ISR 写 s_adc_frame[s_adc_write_idx]，读取 s_dma_buffer 后解交错写入；
+ * - 主循环读 s_adc_frame[s_adc_ready_idx]，极短临界区只取 ready 帧编号；
+ * - s_adc_ready / s_adc_ready_idx / s_adc_write_idx 均为 volatile，
+ *   主循环在读 ready_idx 前关中断避免 ISR 同时切换 write/ready。
+ */
 static app_adc_frame_t s_adc_frame[2];
-
-/** ISR 当前写入的缓冲编号 (0 或 1)。 */
 static volatile uint8_t s_adc_write_idx;
-
-/** 最近一次 ISR 写完的缓冲编号。 */
 static volatile uint8_t s_adc_ready_idx;
-
-/** 有新帧就绪标志，ISR 置 1，主循环消费后清 0。 */
 static volatile uint8_t s_adc_ready;
 
-/** 主循环工作帧（从 ready 帧复制，用于 Rust 计算）。 */
+/** 主循环工作帧：从 ready 帧复制，用于 Rust 计算。 */
 static app_adc_frame_t s_adc_work_frame;
 
-/** 显示帧：LCD/串口/CAL ZERO 统一读取的稳定快照。 */
+/** 显示帧：LCD、串口、CAL ZERO 统一读取的稳定快照。 */
 static app_adc_frame_t s_adc_display_frame;
 
-/** 由 Rust 算法库计算后填充的电参数结果。 */
+/** Rust 算法库填充的电参数结果。 */
 static app_electrical_params_t s_electrical_params;
 
-/** 零偏移校准时写入的 DC 偏移值（0 = 自动估算）。 */
+/** 零偏移校准 DC 补偿值（0 = 自动估算）。 */
 static uint16_t s_zero_v;
 static uint16_t s_zero_i;
 static uint16_t s_zero_ilk;
 
-/** 是否已执行过 CAL ZERO。写入校准时置 1。 */
+/** 是否已执行过 CAL ZERO。 */
 static uint8_t s_zero_calibrated;
 
 /* ================================================================== */
-/* 定时器参数计算（与 app_dac.c 中 calc_timer_params 算法一致）         */
+/* 定时器参数计算（与 app_dac.c 中 calc_timer_params 算法一致）       */
 /* ================================================================== */
 
 /**
@@ -102,12 +97,9 @@ static void calc_adc_timer_params(uint32_t rate_hz,
                                   uint16_t *psc,
                                   uint16_t *arr)
 {
-    // 单次触发周期需要的定时器 tick 数（四舍五入）
     uint32_t target_ticks =
         (APP_APB1_TIMER_CLK_HZ + (rate_hz / 2U)) / rate_hz;
-    // 先算需要的预分频器值
     uint32_t prescaler = (target_ticks + 65535U) / 65536U;
-    // 周期计数值（ARR + 1 即实际一个触发周期的 tick 数）
     uint32_t period;
 
     if (prescaler > 0U) {
@@ -135,22 +127,26 @@ static void calc_adc_timer_params(uint32_t rate_hz,
 
 /**
  * @brief 初始化 ADC 采样硬件链路。
+ *
+ * ADC1 由 TIM3 TRGO 触发，每次触发完成 3 通道规则组扫描：
+ *   Rank1: PC0 / ADC1_IN10 / VL
+ *   Rank2: PC3 / ADC1_IN13 / iL
+ *   Rank3: PC2 / ADC1_IN12 / iLK
+ *
+ * 采样率 = 50 Hz × 128 点 = 6400 组/s。
+ * 采样时间取 239.5 cycles ≈ 21 μs @ 12 MHz，用较长采样窗口降低外部调理电路输出阻抗影响。
  */
 void app_adc_init(void)
 {
     /* --- 1. RCC 时钟 --- */
-    // ADC 时钟 ≤ 14 MHz：72 / 6 = 12 MHz
+    /* ADC 时钟 ≤ 14 MHz：72 / 6 = 12 MHz */
     RCC_ADCCLKConfig(RCC_PCLK2_Div6);
 
-    // GPIOC（PC0-PC2 模拟输入）和 ADC1 在 APB2 上
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC | RCC_APB2Periph_ADC1,
-                           ENABLE);
-    // TIM3 在 APB1 上
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC | RCC_APB2Periph_ADC1, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
-    // DMA1 在 AHB 上
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
 
-    /* --- 2. GPIO: PC0/PC3/PC2 模拟输入 --- */
+    /* --- 2. GPIO：PC0/PC3/PC2 模拟输入 --- */
     {
         GPIO_InitTypeDef gpio;
         GPIO_StructInit(&gpio);
@@ -159,7 +155,7 @@ void app_adc_init(void)
         GPIO_Init(GPIOC, &gpio);
     }
 
-    /* --- 3. TIM3: 6400 Hz TRGO 触发源 --- */
+    /* --- 3. TIM3：6400 Hz TRGO 触发源 --- */
     {
         uint16_t psc, arr;
         calc_adc_timer_params(APP_ADC_SAMPLE_RATE_HZ, &psc, &arr);
@@ -172,43 +168,28 @@ void app_adc_init(void)
         time_base.TIM_ClockDivision = TIM_CKD_DIV1;
         TIM_TimeBaseInit(TIM3, &time_base);
 
-        // TIM3 Update 事件作为 TRGO，接到 ADC1 的外部触发
         TIM_SelectOutputTrigger(TIM3, TIM_TRGOSource_Update);
     }
 
-    /* --- 4. ADC1: 独立模式，扫描 3 通道，TIM3 TRGO 触发 --- */
+    /* --- 4. ADC1：独立模式，非连续扫描 3 通道，TIM3 TRGO 触发 --- */
     {
         ADC_InitTypeDef adc;
         ADC_StructInit(&adc);
         adc.ADC_Mode               = ADC_Mode_Independent;
         adc.ADC_ScanConvMode       = ENABLE;
-        // 非连续转换：每次 TRGO 只触发一次完整扫描序列
         adc.ADC_ContinuousConvMode = DISABLE;
         adc.ADC_ExternalTrigConv   = ADC_ExternalTrigConv_T3_TRGO;
         adc.ADC_DataAlign          = ADC_DataAlign_Right;
         adc.ADC_NbrOfChannel       = APP_ADC_CHANNELS;
         ADC_Init(ADC1, &adc);
 
-        // 规则组顺序：Rank1=IN10(VL), Rank2=IN13(iL), Rank3=IN12(iLK)
-        // 每通道 239.5 周期采样时间 ≈ 21 μs @ 12 MHz，降低外部阻抗影响
-        ADC_RegularChannelConfig(ADC1,
-                                 APP_ADC_V_CHANNEL,
-                                 1,
-                                 ADC_SampleTime_239Cycles5);
-        ADC_RegularChannelConfig(ADC1,
-                                 APP_ADC_I_CHANNEL,
-                                 2,
-                                 ADC_SampleTime_239Cycles5);
-        ADC_RegularChannelConfig(ADC1,
-                                 APP_ADC_ILK_CHANNEL,
-                                 3,
-                                 ADC_SampleTime_239Cycles5);
+        ADC_RegularChannelConfig(ADC1, APP_ADC_V_CHANNEL,   1, ADC_SampleTime_239Cycles5);
+        ADC_RegularChannelConfig(ADC1, APP_ADC_I_CHANNEL,   2, ADC_SampleTime_239Cycles5);
+        ADC_RegularChannelConfig(ADC1, APP_ADC_ILK_CHANNEL, 3, ADC_SampleTime_239Cycles5);
 
-        // 使能 DMA 请求和外部触发
         ADC_DMACmd(ADC1, ENABLE);
         ADC_ExternalTrigConvCmd(ADC1, ENABLE);
 
-        // 上电并校准
         ADC_Cmd(ADC1, ENABLE);
         ADC_ResetCalibration(ADC1);
         while (ADC_GetResetCalibrationStatus(ADC1) != RESET) {}
@@ -216,7 +197,7 @@ void app_adc_init(void)
         while (ADC_GetCalibrationStatus(ADC1) != RESET) {}
     }
 
-    /* --- 5. DMA1_Channel1: 外设→内存，2倍帧循环模式，HT/TC 中断 --- */
+    /* --- 5. DMA1_Channel1：外设→内存，2 倍帧循环，HT/TC 中断 --- */
     {
         DMA_InitTypeDef dma;
         DMA_DeInit(DMA1_Channel1);
@@ -234,11 +215,10 @@ void app_adc_init(void)
         dma.DMA_M2M                = DMA_M2M_Disable;
         DMA_Init(DMA1_Channel1, &dma);
 
-        // 使能半传输和传输完成中断
         DMA_ITConfig(DMA1_Channel1, DMA_IT_HT | DMA_IT_TC, ENABLE);
     }
 
-    /* --- 6. NVIC: DMA1_Channel1 中断 --- */
+    /* --- 6. NVIC --- */
     {
         NVIC_InitTypeDef nvic;
         nvic.NVIC_IRQChannel                   = DMA1_Channel1_IRQn;
@@ -250,10 +230,9 @@ void app_adc_init(void)
 
     /* --- 7. 启动链路：DMA → ADC → TIM3 --- */
     DMA_Cmd(DMA1_Channel1, ENABLE);
-    // TIM3 启动后立刻开始产生 TRGO，触发第一次扫描序列
     TIM_Cmd(TIM3, ENABLE);
 
-    /* --- 8. 校准状态与双缓冲初始化 --- */
+    /* --- 8. 校准与双缓冲初始化 --- */
     s_adc_write_idx   = 0U;
     s_adc_ready_idx   = 0U;
     s_adc_ready       = 0U;
@@ -264,16 +243,16 @@ void app_adc_init(void)
 }
 
 /* ================================================================== */
-/* DMA HT/TC 中断处理                                                   */
+/* DMA HT/TC 中断处理                                                 */
 /* ================================================================== */
 
 /**
- * @brief 从 DMA 缓冲区指定偏移处解交错一帧数据到 ISR 写缓冲。
+ * @brief 从 DMA 缓冲区指定偏移处解交错一帧到 ISR 写缓冲。
  *
- * 写入当前 s_adc_write_idx 对应的缓冲，然后将其标记为 ready 并切换
- * write 到另一面。主循环通过 s_adc_ready_idx 读取已写完的帧。
+ * DMA 输入为交错序列：V1, I1, ILK1, V2, I2, ILK2, ...
+ * 输出为三个独立的连续数组。
  *
- * @param src 指向当前半帧起始位置的指针（384 个半字）。
+ * 写入当前 s_adc_write_idx 后切换 write/ready，DMA 始终写另一面。
  */
 static void deinterleave_frame(const uint16_t *src)
 {
@@ -292,11 +271,10 @@ static void deinterleave_frame(const uint16_t *src)
 }
 
 /**
- * @brief DMA1_Channel1 半传输/传输完成中断入口。
+ * @brief DMA1_Channel1 半传输/传输完成中断。
  *
- * HT 中断：前半帧 [0..384) 写完，DMA 正在写后半帧 → 安全读前半帧。
- * TC 中断：后半帧 [384..768) 写完，DMA 正在写前半帧 → 安全读后半帧。
- * 无需修改 CMAR，DMA 循环地址不变。
+ * HT：前半帧 [0..384) 写完 → 安全读；TC：后半帧 [384..768) 写完 → 安全读。
+ * DMA circular 模式下地址自动回绕，无需操作 CMAR。
  */
 void app_adc_dma1_ch1_irq_handler(void)
 {
@@ -312,16 +290,18 @@ void app_adc_dma1_ch1_irq_handler(void)
 }
 
 /* ================================================================== */
-/* 主循环任务                                                          */
+/* 主循环任务                                                         */
 /* ================================================================== */
 
 /**
- * @brief 在主循环中调用：检查新数据并触发电参数计算。
+ * @brief 主循环中检查新数据并触发电参数计算。
  *
- * 三层快照架构：
- *   1. ISR 写 s_adc_frame[write_idx]（DMA 中断上下文）
- *   2. 主循环极短临界区取 ready_idx，整帧复制到 s_adc_work_frame
- *   3. 计算后将工作帧复制到 s_adc_display_frame 供 LCD/串口/CAL 读取
+ * 流程：
+ * 1. 极短临界区（关中断仅取 ready 帧编号）；
+ * 2. 整帧复制到工作帧（临界区外，不阻塞中断）；
+ * 3. 快照校准参数（避免 Rust 函数执行期间被 CAL ZERO 修改）；
+ * 4. 调用 Rust 定点数算法库计算电参数；
+ * 5. 更新显示帧快照，供 LCD/串口/CAL ZERO 安全读取。
  */
 void app_adc_task(void)
 {
@@ -340,7 +320,7 @@ void app_adc_task(void)
     /* 整帧复制到工作缓冲（不在临界区内，不占用栈） */
     s_adc_work_frame = s_adc_frame[ri];
 
-    /* 快照校准参数（避免在 Rust 函数调用期间被 CAL ZERO 命令修改） */
+    /* 快照校准参数 */
     uint16_t cal_v    = s_zero_v;
     uint16_t cal_i    = s_zero_i;
     uint16_t cal_ilk  = s_zero_ilk;
@@ -362,25 +342,19 @@ void app_adc_task(void)
 
     s_electrical_params.zero_calibrated = cal_done;
 
-    /* 更新显示帧：LCD、串口、CAL ZERO 统一读取此稳定快照 */
+    /* 更新显示帧快照 */
     s_adc_display_frame = s_adc_work_frame;
 }
 
 /* ================================================================== */
-/* 公共接口                                                            */
+/* 公共接口                                                           */
 /* ================================================================== */
 
-/**
- * @brief 获取最近一次电参数计算结果。
- */
 const app_electrical_params_t *app_adc_get_params(void)
 {
     return &s_electrical_params;
 }
 
-/**
- * @brief 获取指定通道的稳定样点快照（来自显示帧，不受 ISR 干扰）。
- */
 const uint16_t *app_adc_get_samples(uint8_t channel)
 {
     if (channel == 0U) {
@@ -399,7 +373,7 @@ const uint16_t *app_adc_get_samples(uint8_t channel)
  * @brief 执行零偏移校准：取显示帧 128 点算术平均作为 DC 偏移。
  *
  * 基于 s_adc_display_frame（稳定快照），不受 ISR 写入干扰。
- * 在 CAL ZERO 命令的处理函数中调用（主循环上下文，非 ISR 上下文）。
+ * 在主循环上下文中调用（CAL ZERO 命令处理），非 ISR 上下文。
  */
 void app_adc_calibrate_zero(void)
 {

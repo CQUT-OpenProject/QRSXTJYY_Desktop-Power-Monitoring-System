@@ -1,6 +1,6 @@
 /**
  * @file app_display.h
- * @brief LCD 显示应用模块接口。
+ * @brief LCD 显示模块接口。
  */
 #ifndef APP_DISPLAY_H
 #define APP_DISPLAY_H
@@ -9,20 +9,22 @@
 #include "app_ui.h"
 
 /**
- * @brief 初始化 LCD 显示内容。
+ * @brief 初始化 LCD 并显示固定提示栏。
  */
 void app_display_init(void);
 
 /**
- * @brief 执行显示模块周期任务。
+ * @brief 显示周期任务，在主循环中调用。
  *
- * LCD 不适合在主循环里一直刷；这里按刷新请求或固定间隔更新画面，
- * 减少闪烁，也少占一点总线时间。
+ * 有刷新请求或距上次刷新超过 500 ms 时重绘当前页面。
+ *
+ * @param state 监控状态快照。
+ * @param ui    UI 菜单状态。
  */
 void app_display_task(const app_monitor_state_t *state, const app_ui_state_t *ui);
 
 /**
- * @brief 标记显示内容需要刷新。
+ * @brief 请求下一次显示任务重绘页面。
  */
 void app_display_request_refresh(void);
 

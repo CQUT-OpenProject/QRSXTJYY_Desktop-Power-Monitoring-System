@@ -13,19 +13,16 @@
 
 /**
  * @brief 按安全顺序初始化板级资源和应用模块。
+ *
+ * 顺序说明：
+ * 1. board_init → 需要安全电平的先配置；
+ * 2. 外设初始化和应用层之间的依赖次序由各 init 内部保证。
  */
 void app_startup_init(void)
 {
-    // 配置需要安全电平的 GPIO
     board_init();
-
-    // 初始化 LCD
     app_display_init();
-
-    // 初始化按键
     app_keys_init();
-
-    // 初始化通信协议
     app_protocol_init();
     app_pwm_init();
     app_capture_init();

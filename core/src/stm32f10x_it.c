@@ -141,7 +141,7 @@ void SysTick_Handler(void)
 /******************************************************************************/
 /*                 STM32F10x Peripherals Interrupt Handlers                   */
 /*  Add here the Interrupt Handler for the used peripheral(s) (PPP), for the  */
-/*  available peripheral interrupt handler's name please refer to the startup */
+/*  available peripheral interrupt handler's name please refer to the startup  */
 /*  file (startup_stm32f10x_xx.s).                                            */
 /******************************************************************************/
 
@@ -156,33 +156,19 @@ void SysTick_Handler(void)
 
 void TIM2_IRQHandler(void)
 {
-  /*
-   * TIM2 同时负责 PA1 输入捕获和微秒时间基准。
-   * 中断入口只转发，具体标志位交给 app_capture 处理。
-   */
   app_capture_tim2_irq_handler();
 }
 
 void USART1_IRQHandler(void)
 {
-  /*
-   * USART1 收到字节时进入这里。中断里只收字节，
-   * 命令解析留到主循环执行。
-   */
   app_protocol_usart1_irq_handler();
 }
 
 void DMA1_Channel1_IRQHandler(void)
 {
-  /*
-   * DMA1_Channel1 负责把 ADC1->DR 循环搬运到内存缓冲区。
-   * 使用 2 倍帧长循环缓冲，HT/TC 分别处理前/后半帧。
-   */
   app_adc_dma1_ch1_irq_handler();
 }
 
 /**
   * @}
   */ 
-
-

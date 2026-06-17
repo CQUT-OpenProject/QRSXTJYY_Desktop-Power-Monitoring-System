@@ -27,44 +27,36 @@ typedef enum {
     APP_PROTOCOL_RX_CRC_H
 } app_protocol_rx_state_t;
 
-// USART1 中断写入、主循环读取的接收环形缓冲区
+/*
+ * 数据所有权：
+ * - USART1 ISR (USART1_IRQHandler) 只写 s_rx_ring 并推进 s_rx_head；
+ * - 主循环 (app_protocol_task) 读 s_rx_ring，推进 s_rx_tail；
+ * - s_rx_head / s_rx_tail / s_rx_overflow 均为 volatile，ISR 和主循环共享；
+ * - 主循环读 tail 时关中断取 head，避免读到一个中间值。
+ */
 static volatile uint8_t s_rx_ring[APP_PROTOCOL_RX_RING_SIZE];
-// 环形缓冲写指针，由中断在收到新字节后推进
 static volatile uint8_t s_rx_head;
-// 环形缓冲读指针，由主循环解析字节时推进
 static volatile uint8_t s_rx_tail;
-// 环形缓冲溢出标志，主循环读取后会清零并重置解析器
 static volatile uint8_t s_rx_overflow;
 
-// 当前协议帧解析状态
+/* 帧解析状态机变量 — 全部在主循环上下文中使用，ISR 不访问 */
 static app_protocol_rx_state_t s_rx_state;
-// 最近一次收到帧内字节的时间，用于判断半帧超时
 static uint32_t s_last_frame_byte_us;
-// 接收帧实时计算出的 CRC16/MODBUS 校验值
 static uint16_t s_rx_crc;
-// 接收帧里的协议版本字段
 static uint8_t s_rx_version;
-// 接收帧里的消息类型字段
 static uint8_t s_rx_type;
-// 接收帧里的序号字段，响应和错误帧会原样带回
 static uint8_t s_rx_seq;
-// 接收帧声明的 payload 字节长度
 static uint16_t s_rx_payload_len;
-// 当前已经接收的 payload 字节数
 static uint16_t s_rx_payload_index;
-// 接收帧尾部携带的 CRC16 校验值
 static uint16_t s_rx_received_crc;
-// payload 长度超过命令缓冲容量时置位，仍读完整帧但不执行命令
 static uint8_t s_rx_payload_too_long;
-// 命令文本 payload 缓冲区，额外保留 1 字节给字符串结束符
 static char s_rx_payload[APP_PROTOCOL_COMMAND_PAYLOAD_MAX + 1U];
 
 /**
- * @brief 把一个字节累加进 CRC16/MODBUS 校验值。
+ * @brief CRC16/MODBUS：逐位累加一个字节到校验值。
  */
 static uint16_t crc16_modbus_update(uint16_t crc, uint8_t byte)
 {
-    // 当前处理的 CRC 位序号
     uint8_t i;
 
     crc ^= byte;
@@ -78,9 +70,7 @@ static uint16_t crc16_modbus_update(uint16_t crc, uint8_t byte)
     return crc;
 }
 
-/**
- * @brief 重置协议帧解析状态机和当前帧缓存。
- */
+/** 重置帧解析状态机和接收缓存。 */
 static void parser_reset(void)
 {
     s_rx_state = APP_PROTOCOL_RX_SOF0;
@@ -95,23 +85,17 @@ static void parser_reset(void)
     s_rx_payload[0] = '\0';
 }
 
-/**
- * @brief 通过 USART1 阻塞发送单个字节。
- */
+/** 通过 USART1 阻塞发送一个字节。 */
 static void usart_send_byte(uint8_t byte)
 {
-    // 等发送寄存器空了，再写入一个字节
     while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET) {
     }
     USART_SendData(USART1, (uint16_t)byte);
 }
 
-/**
- * @brief 计算文本 payload 的字节长度。
- */
+/** 计算文本 payload 字节长度（不含结尾 NUL）。 */
 static uint16_t text_payload_length(const char *text)
 {
-    // 待发送文本 payload 的长度，不包含字符串结束符
     uint16_t len = 0U;
 
     if (text == 0) {
@@ -124,9 +108,7 @@ static uint16_t text_payload_length(const char *text)
     return len;
 }
 
-/**
- * @brief 发送一个参与 CRC 计算的帧字段字节。
- */
+/** 发送一字节并同时累加 CRC。 */
 static void send_crc_protected_byte(uint8_t byte, uint16_t *crc)
 {
     *crc = crc16_modbus_update(*crc, byte);
@@ -134,18 +116,18 @@ static void send_crc_protected_byte(uint8_t byte, uint16_t *crc)
 }
 
 /**
- * @brief 按应用协议格式发送一帧文本消息。
+ * @brief 发送一帧二进制协议帧，payload 为文本。
+ *
+ * 帧结构（小端序）：
+ *   SOF0 | SOF1 | VERSION | TYPE | SEQ_L | SEQ_H | LEN_L | LEN_H
+ *   | PAYLOAD[0..LEN-1] | CRC16_L | CRC16_H
  */
 static void send_text_frame(uint8_t type, uint8_t seq, const char *payload)
 {
-    // 发送帧实时累计的 CRC16/MODBUS 校验值
     uint16_t crc = 0xFFFFU;
-    // 待发送文本 payload 长度
     uint16_t len = text_payload_length(payload);
-    // payload 字节发送下标
     uint16_t i;
 
-    // 发送帧头、版本、类型、序号、长度和 payload，最后发送 CRC 校验值
     usart_send_byte((uint8_t)APP_PROTOCOL_SOF0);
     usart_send_byte((uint8_t)APP_PROTOCOL_SOF1);
     send_crc_protected_byte((uint8_t)APP_PROTOCOL_VERSION, &crc);
@@ -157,23 +139,18 @@ static void send_text_frame(uint8_t type, uint8_t seq, const char *payload)
         send_crc_protected_byte((uint8_t)payload[i], &crc);
     }
     usart_send_byte((uint8_t)(crc & 0xFFU));
-    usart_send_byte((uint8_t)(crc >> 8U)); // 小端序发送 CRC
+    usart_send_byte((uint8_t)(crc >> 8U));
 }
 
-/**
- * @brief 向主机发送坏帧错误响应。
- */
+/** 发送 TYPE=0x83 坏帧错误响应。 */
 static void send_protocol_error(uint8_t seq)
 {
     send_text_frame((uint8_t)APP_PROTOCOL_TYPE_ERROR, seq, "ERR BAD_FRAME");
 }
 
-/**
- * @brief 检查接收 payload 是否全部为可打印 ASCII 字符。
- */
+/** 检查接收 payload 是否全部为可打印 ASCII。 */
 static uint8_t payload_is_printable_ascii(void)
 {
-    // payload 扫描下标
     uint16_t i;
 
     for (i = 0U; i < s_rx_payload_len; i++) {
@@ -185,14 +162,10 @@ static uint8_t payload_is_printable_ascii(void)
     return 1U;
 }
 
-/**
- * @brief 校验并分发一帧命令消息。
- */
+/** 校验并分发一帧命令消息，返回 1=系统状态变化需刷 LCD。 */
 static uint8_t dispatch_command_frame(void)
 {
-    // 命令模块返回的响应文本和状态变化结果
     app_command_result_t result;
-    // 响应行发送下标
     uint8_t i;
 
     if (s_rx_version != APP_PROTOCOL_VERSION ||
@@ -213,12 +186,9 @@ static uint8_t dispatch_command_frame(void)
     return result.monitor_changed;
 }
 
-/**
- * @brief 将一个接收字节送入协议解析状态机。
- */
+/** 将一字节送入帧解析状态机；返回 1 表示状态变化。 */
 static uint8_t parser_accept_byte(uint8_t byte)
 {
-    // 本字节完成解析后，监控配置是否发生变化
     uint8_t monitor_changed = 0U;
 
     switch (s_rx_state) {
@@ -314,12 +284,9 @@ static uint8_t parser_accept_byte(uint8_t byte)
     return monitor_changed;
 }
 
-/**
- * @brief 在 USART 中断中把收到的字节写入环形缓冲。
- */
+/** USART ISR：将一字节压入环形缓冲。 */
 static void rx_ring_push(uint8_t byte)
 {
-    // 写入当前字节后预计推进到的环形缓冲位置
     uint8_t next = (uint8_t)(s_rx_head + 1U);
 
     if (next == s_rx_tail) {
@@ -331,11 +298,11 @@ static void rx_ring_push(uint8_t byte)
 }
 
 /**
- * @brief 从接收环形缓冲中取出一个字节。
+ * 主循环：从环形缓冲取出一字节。
+ * 关中断取 head，保证读到一致的状态。
  */
 static uint8_t rx_ring_pop(uint8_t *byte)
 {
-    // 是否成功从环形缓冲取出一个字节
     uint8_t has_byte = 0U;
 
     __disable_irq();
@@ -349,12 +316,9 @@ static uint8_t rx_ring_pop(uint8_t *byte)
     return has_byte;
 }
 
-/**
- * @brief 读取并清除接收环形缓冲溢出标志。
- */
+/** 读取并清除环形缓冲溢出标志。 */
 static uint8_t rx_ring_take_overflow(void)
 {
-    // 本次读取到的溢出标志快照
     uint8_t overflow;
 
     __disable_irq();
@@ -366,28 +330,25 @@ static uint8_t rx_ring_take_overflow(void)
 }
 
 /**
- * @brief 初始化 USART1 应用协议收发通道。
+ * @brief 初始化 USART1 协议收发通道。
+ *
+ * 引脚：PA9(TX) 复用推挽输出，PA10(RX) 浮空输入。
+ * 配置后发送 OK COURSE1 READY 事件帧。
  */
 void app_protocol_init(void)
 {
-    // USART1 TX/RX 引脚配置
     GPIO_InitTypeDef gpio;
-    // USART1 通信参数配置
     USART_InitTypeDef usart;
-    // USART1 接收中断优先级配置
     NVIC_InitTypeDef nvic;
 
-    // USART1 使用 PA9(TX) 和 PA10(RX)，打开端口时钟
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_USART1, ENABLE);
 
     GPIO_StructInit(&gpio);
-    // 配置 PA9 复用推挽输出，用来把串口数据发给板载 CH340
     gpio.GPIO_Pin = GPIO_Pin_9;
     gpio.GPIO_Mode = GPIO_Mode_AF_PP;
     gpio.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(GPIOA, &gpio);
 
-    // PA10 是串口接收脚，使用浮空输入
     gpio.GPIO_Pin = GPIO_Pin_10;
     gpio.GPIO_Mode = GPIO_Mode_IN_FLOATING;
     GPIO_Init(GPIOA, &gpio);
@@ -401,7 +362,6 @@ void app_protocol_init(void)
     usart.USART_Mode = USART_Mode_Tx | USART_Mode_Rx;
     USART_Init(USART1, &usart);
 
-    // RXNE 中断表示收到一个字节，ISR 会把字节放进环形缓冲
     USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);
 
     nvic.NVIC_IRQChannel = USART1_IRQn;
@@ -421,19 +381,18 @@ void app_protocol_init(void)
 }
 
 /**
- * @brief 处理接收缓冲中的协议字节并执行完整命令帧。
+ * @brief 串口协议周期任务：从环形缓冲取字节送入解析状态机。
  */
 uint8_t app_protocol_task(uint32_t now_us)
 {
-    // 从环形缓冲中取出的待解析字节
     uint8_t byte;
-    // 本轮任务是否导致监控配置变化
     uint8_t monitor_changed = 0U;
 
     if (rx_ring_take_overflow() != 0U) {
         parser_reset();
     }
 
+    /* 超时保护：半帧间隔超过 300 ms 则重置解析器 */
     if (s_rx_state != APP_PROTOCOL_RX_SOF0 &&
         (now_us - s_last_frame_byte_us) >= APP_PROTOCOL_FRAME_TIMEOUT_US) {
         parser_reset();
@@ -450,7 +409,7 @@ uint8_t app_protocol_task(uint32_t now_us)
 }
 
 /**
- * @brief USART1 接收中断处理入口，转存收到的字节。
+ * @brief USART1 RXNE 中断：将收到的字节压入环形缓冲。
  */
 void app_protocol_usart1_irq_handler(void)
 {
@@ -460,10 +419,9 @@ void app_protocol_usart1_irq_handler(void)
 }
 
 /**
- * @brief 以事件帧形式发送一行状态上报文本。
+ * @brief 发送 TYPE=0x82 自动上报事件帧。
  */
 void app_protocol_send_report_line(const char *line)
 {
     send_text_frame((uint8_t)APP_PROTOCOL_TYPE_EVENT, 0U, line);
 }
-

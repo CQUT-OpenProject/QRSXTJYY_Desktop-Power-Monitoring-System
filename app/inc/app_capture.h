@@ -1,6 +1,9 @@
 /**
  * @file app_capture.h
- * @brief 输入捕获应用模块接口。
+ * @brief TIM2 输入捕获测频模块接口。
+ *
+ * PA1 上升沿捕获 → 相邻边沿时间差 → 频率 (Hz × 100)。
+ * TIM2 同时提供 32 位微秒级时间戳（16 位计数器 + 溢出扩展）。
  */
 #ifndef APP_CAPTURE_H
 #define APP_CAPTURE_H
@@ -8,42 +11,46 @@
 #include <stdint.h>
 
 /**
- * @brief 初始化输入捕获模块。
+ * @brief 初始化 PA1/TIM2_CH2 输入捕获和微秒时间基准。
+ *
+ * 配置 TIM2 以 1 MHz 运行，溢出中断扩展时间高位。
  */
 void app_capture_init(void);
 
 /**
- * @brief 输入捕获周期任务，处理超时和上报节流。
+ * @brief 输入捕获周期任务，在主循环中调用。
  *
- * 中断只负责快速记录捕获结果；超时判断、是否需要自动上报这些较慢逻辑
- * 放在主循环里执行，避免中断处理时间太长。
+ * 检查输入信号超时（2 秒无边沿 → 频率清零）；
+ * 管理自动上报节流（周期 1 秒 / 变化 200 ms）。
  */
 void app_capture_task(void);
 
 /**
- * @brief TIM2 中断入口转发函数。
+ * @brief TIM2 中断入口转发函数（捕获 + 溢出）。
+ *
+ * 由 stm32f10x_it.c 中的 TIM2_IRQHandler 调用。
  */
 void app_capture_tim2_irq_handler(void);
 
 /**
- * @brief 获取最新测得频率，单位为 Hz * 100。
+ * @brief 获取最新测得频率，单位 Hz × 100。
  *
- * 使用 Hz * 100 可以在没有浮点数的情况下表示两位小数，例如 50.12 Hz
- * 保存为 5012。
+ * 例如 50.00 Hz 返回 5000，避免浮点数。
  */
 uint32_t app_capture_get_frequency_x100(void);
 
 /**
- * @brief 获取 TIM2 扩展后的微秒时间戳。
+ * @brief 获取 TIM2 扩展后的 32 位微秒时间戳。
  *
- * TIM2 是 16 位计数器，溢出后会从 0 重新计数；本文件用 s_overflows 记录
- * 溢出次数，再拼成 32 位微秒时间。
+ * 16 位硬件计数器 + 软件溢出计数拼接，毛刺通过补偿修正。
  */
 uint32_t app_capture_get_time_us(void);
 
 /**
- * @brief 取出一次待上报的测量结果。
- * @return 1 表示有新结果，0 表示无。
+ * @brief 取出一条待上报的频率测量结果。
+ *
+ * @param freq_x100 输出参数，写入频率值 (Hz × 100)。
+ * @return 1 表示有新结果待上报，0 表示无。
  */
 uint8_t app_capture_take_report(uint32_t *freq_x100);
 
