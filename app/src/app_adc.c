@@ -41,12 +41,17 @@
 /* ================================================================== */
 
 /**
- * @brief DMA 循环目标缓冲区。
+ * @brief DMA 双缓冲区。
  *
- * DMA1_Channel1 从 ADC1->DR 搬运到这个数组，顺序为
- * V[0] I[0] Ilk[0] V[1] I[1] Ilk[1] ... V[127] I[127] Ilk[127]。
+ * DMA 循环写入当前活动缓冲区，ISR 在 TC 中断中切换到备用缓冲区后
+ * 从刚完成的那份安全地解交错，避免 DMA 下一轮覆写与 ISR 读取竞争。
  */
-static uint16_t s_dma_buffer[APP_ADC_DMA_SIZE];
+static uint16_t s_dma_buffer_a[APP_ADC_DMA_SIZE];
+static uint16_t s_dma_buffer_b[APP_ADC_DMA_SIZE];
+/** 指向 DMA 当前正在写入的缓冲区。 */
+static volatile uint16_t *s_dma_active = (volatile uint16_t *)s_dma_buffer_a;
+/** 指向 ISR 可以安全读取的已完成缓冲区。 */
+static uint16_t *s_dma_ready;
 
 /** 解交错后的电压通道样点（PC0 / ADC1_IN10）。 */
 static uint16_t s_adc_v[APP_ADC_SAMPLES];
@@ -206,7 +211,7 @@ void app_adc_init(void)
         DMA_DeInit(DMA1_Channel1);
         DMA_StructInit(&dma);
         dma.DMA_PeripheralBaseAddr = (uint32_t)&ADC1->DR;
-        dma.DMA_MemoryBaseAddr     = (uint32_t)s_dma_buffer;
+        dma.DMA_MemoryBaseAddr     = (uint32_t)s_dma_buffer_a;
         dma.DMA_DIR                = DMA_DIR_PeripheralSRC;
         dma.DMA_BufferSize         = APP_ADC_DMA_SIZE;
         dma.DMA_PeripheralInc      = DMA_PeripheralInc_Disable;
@@ -262,12 +267,27 @@ void app_adc_dma1_ch1_irq_handler(void)
     if (DMA_GetITStatus(DMA1_IT_TC1) != RESET) {
         DMA_ClearITPendingBit(DMA1_IT_TC1);
 
-        // 从 384 点交错缓冲区解交错到 3 个 128 点通道数组
+        // 切换双缓冲：DMA 刚写完的缓冲区交给 ISR 安全读取，
+        // 下一轮 DMA 写入另一个缓冲区，避免读写竞争。
+        if (s_dma_active == (volatile uint16_t *)s_dma_buffer_a) {
+            s_dma_ready  = s_dma_buffer_b;
+            s_dma_active = (volatile uint16_t *)s_dma_buffer_b;
+        } else {
+            s_dma_ready  = s_dma_buffer_a;
+            s_dma_active = (volatile uint16_t *)s_dma_buffer_a;
+        }
+
+        // 将刚完成的缓冲区重定向给 DMA 下一轮使用。
+        // 必须在解交错之前完成指针切换，ISR 读取 s_dma_ready 期间
+        // DMA 已在写入 s_dma_active，两者互不干扰。
+        DMA1_Channel1->CMAR = (uint32_t)s_dma_active;
+
+        // 从已完成的缓冲区解交错到三通道数组
         uint16_t i;
         for (i = 0U; i < APP_ADC_SAMPLES; i++) {
-            s_adc_v[i]   = s_dma_buffer[i * 3U];
-            s_adc_i[i]   = s_dma_buffer[i * 3U + 1U];
-            s_adc_ilk[i] = s_dma_buffer[i * 3U + 2U];
+            s_adc_v[i]   = s_dma_ready[i * 3U];
+            s_adc_i[i]   = s_dma_ready[i * 3U + 1U];
+            s_adc_ilk[i] = s_dma_ready[i * 3U + 2U];
         }
 
         s_adc_fresh = 1U;
