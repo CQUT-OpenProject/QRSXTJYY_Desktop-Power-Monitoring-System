@@ -82,6 +82,65 @@ A5 5A 01 01 2A 07 00 53 54 41 54 55 53 3F B4 59
 
 其中 `53 54 41 54 55 53 3F` 是 ASCII payload `STATUS?`，`B4 59` 是对 `01 01 2A 07 00 53 54 41 54 55 53 3F` 计算得到的 CRC-16/Modbus。
 
+## 串口命令行工具
+
+`tools/serial_cmd/` 是一个 Rust 编写的串口命令工具，自动完成二进制帧封装和 CRC 校验。
+
+编译：
+
+```sh
+cd tools/serial_cmd
+cargo build --release
+```
+
+编译产物位于 `tools/serial_cmd/target/release/serial_cmd`。
+
+### 发送命令
+
+```sh
+# 查询状态
+serial_cmd /dev/cu.usbserial-10 "STATUS?"
+
+# 查看帮助
+serial_cmd /dev/cu.usbserial-10 "HELP"
+
+# 修改 PWM 频率
+serial_cmd /dev/cu.usbserial-10 "PWM SET 1000"
+
+# 开关自动上报
+serial_cmd /dev/cu.usbserial-10 "REPORT ON"
+serial_cmd /dev/cu.usbserial-10 "REPORT OFF"
+
+# DAC 参数设置
+serial_cmd /dev/cu.usbserial-10 "DAC SET MODE DUAL"
+serial_cmd /dev/cu.usbserial-10 "DAC SET FREQ 80"
+serial_cmd /dev/cu.usbserial-10 "DAC SET AMP 1900"
+serial_cmd /dev/cu.usbserial-10 "DAC SET PHASE 180"
+
+# ADC 零偏移校准
+serial_cmd /dev/cu.usbserial-10 "CAL ZERO"
+```
+
+`REPORT ON` 发送后会自动进入 5 秒监听，显示后续自动上报内容。
+
+### 监听模式
+
+持续接收设备的自动上报和事件帧：
+
+```sh
+serial_cmd /dev/cu.usbserial-10 monitor
+```
+
+按 `Ctrl+C` 退出。
+
+### CRC 校验测试
+
+```sh
+cargo run --release --bin crc_test -- /dev/cu.usbserial-10
+```
+
+该测试会分别发送正确 CRC 帧、破坏 CRC 帧和篡改 payload 帧，验证设备端 CRC 校验是否正常工作。
+
 ## 项目结构
 
 - `core/`：启动后的 C 入口、中断文件、`SystemInit`。
@@ -92,6 +151,7 @@ A5 5A 01 01 2A 07 00 53 54 41 54 55 53 3F B4 59
 - `linker/`：STM32F103RCT6 的 Flash/RAM 链接脚本。
 - `startup/`：启动汇编文件。
 - `tools/openocd/`：OpenOCD 烧录配置。
+- `tools/serial_cmd/`：Rust 串口命令行工具，封装二进制帧协议和 CRC 校验。
 
 ## 环境要求
 
@@ -172,20 +232,6 @@ python3 -m serial.tools.list_ports -v
 ```
 
 串口烧录前需要让芯片进入系统 Bootloader：将 `BOOT0` 置 1 后复位。烧录完成后，将 `BOOT0` 置回 0 并复位运行用户程序。
-
-## 演示验证
-
-推荐按以下顺序验收当前功能：
-
-1. 构建固件，确认无编译错误和新增警告。
-2. 烧录后进入 `Square Wave` 页面，示波器测 PA8，确认 PWM 方波输出。
-3. 将 PA8 或其它信号源接入 PA1，进入 `Freq Measure` 页面，确认 LCD 测频值变化。
-4. 进入 `DA Wave` 页面，示波器测 PA4/PA5，确认默认 50 Hz 正弦波和 LCD 曲线显示。
-5. 通过串口帧发送 `DAC SET MODE DUAL`、`DAC SET FREQ 80`、`DAC SET AMP 1900`、`DAC SET PHASE 180`，确认 PA4/PA5 和 LCD 曲线同步变化。
-6. 将 PA4 接 PA1，通过串口帧发送 `STATUS?`，确认 `MEAS` 与 `DAC_FREQ` 接近。
-7. 将 PA4 DAC 飞线到 PC0/PC1，进入 `AC Measure` 页面，确认 V ADC min/max 随信号变化。
-8. 发送 `STATUS?`，确认响应包含 `VRMS`/`IRMS`/`ILK`/`P`/`S`/`PF`/`CAL` 字段。
-9. 发送 `CAL ZERO` → 返回 `OK CAL ZERO DONE` → 再发 `STATUS?` 确认 `CAL=YES`。
 
 ## Rust/C 接口与 cbindgen
 
