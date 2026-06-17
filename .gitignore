@@ -1,6 +1,7 @@
 build/
 cmake-build-*/
 rust_algos/target/
+tools/serial_cmd/target
 .DS_Store
 *.map
 *.elf

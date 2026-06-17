@@ -1,0 +1,9 @@
+[package]
+name = "serial_cmd"
+version = "0.1.0"
+edition = "2021"
+description = "串口二进制帧命令工具 — 向 STM32 发送命令并接收响应"
+
+[dependencies]
+serialport = "4"
+clap = { version = "4", features = ["derive"] }
