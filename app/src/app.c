@@ -65,7 +65,7 @@ void app_run(void)
 
             app_monitor_state_read(&display_state);
             app_command_format_status(&display_state, report_line, sizeof(report_line));
-            app_protocol_send_report_plain(report_line);
+            app_protocol_send_report_line(report_line);
         }
 
         // 按键扫描返回的是消抖后的“事件”，不是 GPIO 当前电平。
