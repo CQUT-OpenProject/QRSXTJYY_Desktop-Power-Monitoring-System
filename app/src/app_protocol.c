@@ -2,6 +2,7 @@
 
 #include "app_command.h"
 #include "app_config.h"
+#include "app_protocol_defs.h"
 #include "misc.h"
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_rcc.h"
@@ -9,18 +10,9 @@
 
 #include <stdint.h>
 
-#define APP_PROTOCOL_SOF0 0xA5U
-#define APP_PROTOCOL_SOF1 0x5AU
-#define APP_PROTOCOL_VERSION 0x01U
-
-#define APP_PROTOCOL_TYPE_COMMAND 0x01U
-#define APP_PROTOCOL_TYPE_RESPONSE 0x81U
-#define APP_PROTOCOL_TYPE_EVENT 0x82U
-#define APP_PROTOCOL_TYPE_ERROR 0x83U
-
 #define APP_PROTOCOL_RX_RING_SIZE 256U
 #define APP_PROTOCOL_FRAME_TIMEOUT_US 300000U
-#define APP_PROTOCOL_COMMAND_PAYLOAD_MAX (APP_COMMAND_INPUT_MAX - 1U)
+#define APP_PROTOCOL_COMMAND_PAYLOAD_MAX APP_PROTOCOL_MAX_PAYLOAD
 
 typedef enum {
     APP_PROTOCOL_RX_SOF0 = 0,
