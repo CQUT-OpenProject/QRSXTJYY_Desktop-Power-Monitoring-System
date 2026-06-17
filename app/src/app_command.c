@@ -185,8 +185,7 @@ static void add_help(app_command_result_t *result)
 {
     add_response(result, "OK CMD HELP, STATUS?, REPORT?");
     add_response(result, "OK CMD REPORT ON|OFF, PWM SET <hz>");
-    add_response(result, "OK CMD DAC SET MODE SINGLE|DUAL, DAC SET FREQ <hz>");
-    add_response(result, "OK CMD DAC SET AMP <code>, DAC SET PHASE <deg>");
+    add_response(result, "OK CMD DAC SET MODE|FREQ|AMP|PHASE <val>");
     add_response(result, "OK CMD CAL ZERO");
 }
 
@@ -306,7 +305,7 @@ static void handle_cal_zero(app_command_result_t *result)
  */
 void app_command_init(void)
 {
-    s_auto_report_enabled = 1U;
+    s_auto_report_enabled = 0U;
 }
 
 /**
@@ -407,12 +406,25 @@ void app_command_format_status(const app_monitor_state_t *state,
     }
 
     if (state->adc.params != 0) {
+        // 计算 I 通道（PC1）原始 ADC 样点的最小/最大值，用于诊断
+        const uint16_t *i_raw = app_adc_get_samples(1U);
+        uint16_t i_min = 4095U;
+        uint16_t i_max = 0U;
+        if (i_raw != (const uint16_t *)0) {
+            uint16_t k;
+            for (k = 0U; k < 128U; k++) {
+                if (i_raw[k] < i_min) { i_min = i_raw[k]; }
+                if (i_raw[k] > i_max) { i_max = i_raw[k]; }
+            }
+        }
+
         snprintf(line,
                  line_size,
                  "OK STATUS MEAS=%lu.%02luHz PWM=%luHz REPORT=%s "
                  "DAC_MODE=%s DAC_FREQ=%luHz DAC_AMP=%u DAC_PHASE=%u "
                  "VRMS=%lu.%02lu IRMS=%lu.%03lu ILK=%lu.%03lu "
-                 "P=%lu.%01lu S=%lu.%01lu PF=%lu.%03lu CAL=%s",
+                 "P=%lu.%01lu S=%lu.%01lu PF=%lu.%03lu CAL=%s "
+                 "I_RAW=%u..%u",
                  (unsigned long)(state->mains_frequency.frequency_x100 / 100U),
                  (unsigned long)(state->mains_frequency.frequency_x100 % 100U),
                  (unsigned long)state->pwm_output.frequency_hz,
@@ -433,7 +445,9 @@ void app_command_format_status(const app_monitor_state_t *state,
                  (unsigned long)(state->adc.params->apparent_power_x10 % 10U),
                  (unsigned long)(state->adc.params->power_factor_x1000 / 1000U),
                  (unsigned long)(state->adc.params->power_factor_x1000 % 1000U),
-                 state->adc.params->zero_calibrated != 0U ? "YES" : "NO");
+                 state->adc.params->zero_calibrated != 0U ? "YES" : "NO",
+                 (unsigned)i_min,
+                 (unsigned)i_max);
     } else {
         snprintf(line,
                  line_size,

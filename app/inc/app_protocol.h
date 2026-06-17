@@ -32,4 +32,11 @@ void app_protocol_usart1_irq_handler(void);
  */
 void app_protocol_send_report_line(const char *line);
 
+/**
+ * @brief 以纯文本方式发送一行上报信息（带 \r\n 换行）。
+ *
+ * 不附加二进制帧头和 CRC，适合直接用串口调试助手或终端查看。
+ */
+void app_protocol_send_report_plain(const char *line);
+
 #endif

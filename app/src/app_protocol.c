@@ -474,3 +474,24 @@ void app_protocol_send_report_line(const char *line)
 {
     send_text_frame((uint8_t)APP_PROTOCOL_TYPE_EVENT, 0U, line);
 }
+
+/**
+ * @brief 以纯文本方式发送一行上报信息（带 \r\n 换行）。
+ *
+ */
+void app_protocol_send_report_plain(const char *line)
+{
+    // 逐字符发送文本内容
+    uint16_t i;
+
+    if (line == 0) {
+        return;
+    }
+
+    for (i = 0U; line[i] != '\0'; i++) {
+        usart_send_byte((uint8_t)line[i]);
+    }
+    // 发送回车换行，使串口终端显示可读
+    usart_send_byte((uint8_t)'\r');
+    usart_send_byte((uint8_t)'\n');
+}

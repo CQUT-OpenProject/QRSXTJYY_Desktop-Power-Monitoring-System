@@ -17,8 +17,6 @@
 #include "app_startup.h"
 #include "app_ui.h"
 
-#include "stm32f10x_usart.h"
-
 /**
  * @brief 初始化应用层所有启动项。
  */
@@ -65,21 +63,9 @@ void app_run(void)
             // 和 STATUS? 用同一种格式。
             (void)report_freq_x100;
 
-            // 调试标记：报告路径到达
-            {
-                while ((USART1->SR & USART_FLAG_TXE) == 0U) {}
-                USART1->DR = (uint16_t)'S';
-            }
-
             app_monitor_state_read(&display_state);
             app_command_format_status(&display_state, report_line, sizeof(report_line));
-            app_protocol_send_report_line(report_line);
-
-            // 调试标记：报告发送完成
-            {
-                while ((USART1->SR & USART_FLAG_TXE) == 0U) {}
-                USART1->DR = (uint16_t)'D';
-            }
+            app_protocol_send_report_plain(report_line);
         }
 
         // 按键扫描返回的是消抖后的“事件”，不是 GPIO 当前电平。
