@@ -37,6 +37,7 @@ SOF0 SOF1 VER TYPE SEQ LEN_L LEN_H PAYLOAD... CRC_L CRC_H
 - `TYPE=0x81`：设备返回给上位机的命令响应帧。
 - `TYPE=0x82`：设备主动发送的自动上报或事件帧。
 - `TYPE=0x83`：设备返回的协议错误帧，payload 通常为 `ERR BAD_FRAME`。
+- `TYPE=0x84`：设备分帧发送的屏幕截图数据帧（调试辅助功能，见末尾「屏幕截图」）。
 - `SEQ` 是请求序号；命令响应沿用请求帧的 `SEQ`，自动上报和启动事件使用 `0`。
 - `LEN_L/LEN_H` 是 payload 字节数，小端 `uint16`。
 - `CRC_L/CRC_H` 是 CRC-16/Modbus，小端，覆盖 `VER` 到 `PAYLOAD`，不覆盖 `SOF0/SOF1`。
@@ -55,6 +56,7 @@ DAC SET FREQ <hz>
 DAC SET AMP <code>
 DAC SET PHASE <deg>
 CAL ZERO
+SHOT
 ```
 
 说明：
@@ -65,6 +67,7 @@ CAL ZERO
 - `DAC SET MODE DUAL` 时，CH1/CH2 输出同频同幅正弦波，CH2 相对 CH1 使用 `DAC SET PHASE` 指定相位差。
 - `DAC SET FREQ` 当前限制在 1..1000 Hz，`DAC SET AMP` 当前限制到安全码值范围内。
 - `CAL ZERO` 对当前 ADC 三通道各 128 点求算术平均值作为 DC 偏移补偿值，后续电参数计算时自动扣除。校准状态会显示在 `STATUS?` 响应和 LCD 页面中。
+- `SHOT` 是调试辅助命令（不在 `HELP` 列表中）：设备把当前 LCD 画面按 RLE 十六进制文本经 `TYPE=0x84` 帧分块上传，由上位机 `shot` 工具重建为 PNG。
 - 设备启动后会主动发送 `TYPE=0x82, SEQ=0, PAYLOAD="OK COURSE1 READY"`。
 - CRC 错误、帧不完整或 SOF 噪声会被静默丢弃；版本、类型或 payload 长度不合法时返回协议错误帧。
 
@@ -141,6 +144,18 @@ cargo run --release --bin crc_test -- /dev/cu.usbserial-10
 
 该测试会分别发送正确 CRC 帧、破坏 CRC 帧和篡改 payload 帧，验证设备端 CRC 校验是否正常工作。
 
+### 屏幕截图
+
+把当前 LCD 画面通过串口截取为 PNG（240×320，调试辅助功能）：
+
+```sh
+cargo run --release --bin shot -- /dev/cu.usbserial-110 screenshot.png
+# 或直接使用编译产物：
+./target/release/shot /dev/cu.usbserial-110 screenshot.png
+```
+
+参数依次为：串口、输出文件名、可选超时秒数（默认 30）。设备收到 `SHOT` 命令后，把 LCD 画面按 RLE 压缩编码为十六进制文本，经 `TYPE=0x84` 帧分块上传，`shot` 工具重建为 PNG。截图期间主循环会冻结数秒，传完自动恢复。切换 LCD 页面需使用开发板实体按键（串口无翻页命令）。
+
 ## 项目结构
 
 - `core/`：启动后的 C 入口、中断文件、`SystemInit`。
@@ -152,6 +167,7 @@ cargo run --release --bin crc_test -- /dev/cu.usbserial-10
 - `startup/`：启动汇编文件。
 - `tools/openocd/`：OpenOCD 烧录配置。
 - `tools/serial_cmd/`：Rust 串口命令行工具，封装二进制帧协议和 CRC 校验。
+- `report/`：LaTeX 课程设计报告（`main.tex`，xelatex/latexmk 构建），图片位于 `report/figures/`。
 
 ## 环境要求
 
