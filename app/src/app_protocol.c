@@ -425,3 +425,11 @@ void app_protocol_send_report_line(const char *line)
 {
     send_text_frame((uint8_t)APP_PROTOCOL_TYPE_EVENT, 0U, line);
 }
+
+/**
+ * @brief 发送 TYPE=0x84 屏幕截图帧（临时调试用）。
+ */
+void app_protocol_send_shot_line(const char *line)
+{
+    send_text_frame((uint8_t)APP_PROTOCOL_TYPE_SHOT, 0U, line);
+}

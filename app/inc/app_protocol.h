@@ -45,4 +45,11 @@ void app_protocol_usart1_irq_handler(void);
  */
 void app_protocol_send_report_line(const char *line);
 
+/**
+ * @brief 发送 TYPE=0x84 屏幕截图帧（临时调试用）。
+ *
+ * @param line 可打印文本/十六进制 payload，不含 CRLF。封装为二进制协议帧。
+ */
+void app_protocol_send_shot_line(const char *line);
+
 #endif

@@ -35,6 +35,9 @@
 /** 帧类型：设备→上位机 错误通知。 */
 #define APP_PROTOCOL_TYPE_ERROR        0x83U
 
+/** 帧类型：设备→上位机 屏幕截图数据（临时调试用，payload 为可打印文本/十六进制）。 */
+#define APP_PROTOCOL_TYPE_SHOT         0x84U
+
 /**
  * 单帧 payload 最大字节数。
  *

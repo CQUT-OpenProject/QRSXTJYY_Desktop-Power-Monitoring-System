@@ -32,6 +32,8 @@ pub enum FrameType {
     Event,
     /// 错误帧
     Error,
+    /// 屏幕截图帧（设备主动分帧发送，临时调试用）
+    Shot,
     /// 未知类型
     Unknown(u8),
 }
@@ -43,6 +45,7 @@ impl FrameType {
             0x81 => Self::Response,
             0x82 => Self::Event,
             0x83 => Self::Error,
+            0x84 => Self::Shot,
             other => Self::Unknown(other),
         }
     }
@@ -54,6 +57,7 @@ impl FrameType {
             Self::Response => 0x81,
             Self::Event => 0x82,
             Self::Error => 0x83,
+            Self::Shot => 0x84,
             Self::Unknown(v) => *v,
         }
     }
@@ -64,6 +68,7 @@ impl FrameType {
             Self::Response => "RSP".to_string(),
             Self::Event => "EVT".to_string(),
             Self::Error => "ERR".to_string(),
+            Self::Shot => "SHOT".to_string(),
             Self::Unknown(v) => format!("TYP=0x{v:02x}"),
         }
     }

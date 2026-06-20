@@ -4,6 +4,7 @@
 #include "app_dac.h"
 #include "app_monitor_state.h"
 #include "app_pwm.h"
+#include "app_screenshot.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -319,6 +320,9 @@ void app_command_handle_line(const char *line, app_command_result_t *result)
         handle_dac_number(cmd + (sizeof("DAC SET PHASE ") - 1U), result, 2U);
     } else if (equals_ci(cmd, "CAL ZERO") != 0U) {
         handle_cal_zero(result);
+    } else if (equals_ci(cmd, "SHOT") != 0U) {
+        app_screenshot_dump();
+        add_response(result, "OK SHOT DONE");
     } else {
         add_response(result, "ERR BAD_COMMAND");
     }
