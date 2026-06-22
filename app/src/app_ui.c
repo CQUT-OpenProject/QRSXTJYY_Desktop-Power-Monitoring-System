@@ -5,11 +5,12 @@
 #include "app_pwm.h"
 
 #define APP_UI_PWM_STEP_HZ 1U
-#define APP_UI_MENU_ITEMS 4U
+#define APP_UI_MENU_ITEMS 5U
 #define APP_UI_PWM_ITEMS 2U
 #define APP_UI_MEASURE_ITEMS 2U
 #define APP_UI_DA_ITEMS 1U
 #define APP_UI_ADC_ITEMS 1U
+#define APP_UI_INFO_ITEMS 1U
 
 static app_ui_state_t s_state;
 
@@ -27,6 +28,9 @@ static uint8_t item_count_for_page(app_ui_page_t page)
     }
     if (page == APP_UI_PAGE_ADC) {
         return APP_UI_ADC_ITEMS;
+    }
+    if (page == APP_UI_PAGE_INFO) {
+        return APP_UI_INFO_ITEMS;
     }
     return APP_UI_MENU_ITEMS;
 }
@@ -75,7 +79,7 @@ static void enter_menu(void)
     s_state.editing = 0U;
 }
 
-/** 主菜单确认：0→PWM, 1→MEASURE, 2→DA, 3→ADC。 */
+/** 主菜单确认：0→PWM, 1→MEASURE, 2→DA, 3→ADC, 4→INFO。 */
 static void handle_menu_confirm(void)
 {
     if (s_state.cursor == 0U) {
@@ -84,14 +88,16 @@ static void handle_menu_confirm(void)
         s_state.page = APP_UI_PAGE_MEASURE;
     } else if (s_state.cursor == 2U) {
         s_state.page = APP_UI_PAGE_DA;
-    } else {
+    } else if (s_state.cursor == 3U) {
         s_state.page = APP_UI_PAGE_ADC;
+    } else {
+        s_state.page = APP_UI_PAGE_INFO;
     }
     s_state.cursor = 0U;
     s_state.editing = 0U;
 }
 
-/** 功能页面确认：PWM/MEASURE 第 0 项操作，第 1 项返回；DA/ADC 直接返回。 */
+/** 功能页面确认：PWM/MEASURE 第 0 项操作，第 1 项返回；DA/ADC/INFO 直接返回。 */
 static void handle_page_confirm(void)
 {
     if (s_state.page == APP_UI_PAGE_PWM) {
@@ -112,6 +118,8 @@ static void handle_page_confirm(void)
     } else if (s_state.page == APP_UI_PAGE_DA) {
         enter_menu();
     } else if (s_state.page == APP_UI_PAGE_ADC) {
+        enter_menu();
+    } else if (s_state.page == APP_UI_PAGE_INFO) {
         enter_menu();
     }
 }

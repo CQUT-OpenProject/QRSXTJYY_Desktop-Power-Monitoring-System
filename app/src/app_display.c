@@ -26,10 +26,10 @@ static void show_text_line(uint16_t x, uint16_t y, const char *text, uint16_t co
     LCD_ShowString(x, y, (uint16_t)(lcddev.width - x), 16U, 16U, (u8 *)text);
 }
 
-/** 清除内容区域，保留底部提示栏。 */
+/** 清除整个屏幕内容。 */
 static void clear_content_area(void)
 {
-    LCD_Fill(0U, 0U, lcddev.width - 1U, DISPLAY_CONTENT_BOTTOM, BLACK);
+    LCD_Fill(0U, 0U, lcddev.width - 1U, lcddev.height - 1U, BLACK);
 }
 
 /** 显示一行菜单项，selected 时加 '>' 光标并设为黄色。 */
@@ -224,6 +224,7 @@ static void render_main_menu(const app_ui_state_t *ui)
     show_menu_item(ui->cursor == 1U, 102U, "Freq Measure");
     show_menu_item(ui->cursor == 2U, 134U, "DA Wave");
     show_menu_item(ui->cursor == 3U, 166U, "AC Measure");
+    show_menu_item(ui->cursor == 4U, 198U, "INFO");
 }
 
 /** 渲染 PWM 频率设置页。编辑中显示草稿值，确认后才写入 TIM1。 */
@@ -317,6 +318,21 @@ static void render_da_page(const app_monitor_state_t *state, const app_ui_state_
                    YELLOW);
 }
 
+/** 渲染系统信息页。显示 USART 信息和固件版本号。 */
+static void render_info_page(const app_ui_state_t *ui)
+{
+    char line[64];
+
+    show_text_line(10U, 20U, "System Info", CYAN);
+    snprintf(line, sizeof(line), "Firmware: %s", APP_FIRMWARE_VERSION);
+    show_text_line(18U, 70U, line, WHITE);
+    show_text_line(18U, 102U, "USART: USART1", WHITE);
+    show_text_line(18U, 134U, "Baudrate: 115200", WHITE);
+    show_text_line(18U, 166U, "Frame Config: 8N1", WHITE);
+
+    show_menu_item(ui->cursor == 0U, 268U, "Back Home");
+}
+
 /** 根据当前页面刷新 LCD。换页时先清内容区避免残留。 */
 static void refresh_values(const app_monitor_state_t *state, const app_ui_state_t *ui)
 {
@@ -334,6 +350,8 @@ static void refresh_values(const app_monitor_state_t *state, const app_ui_state_
         render_da_page(state, ui);
     } else if (ui->page == APP_UI_PAGE_ADC) {
         render_adc_page(state, ui);
+    } else if (ui->page == APP_UI_PAGE_INFO) {
+        render_info_page(ui);
     } else {
         render_main_menu(ui);
     }
@@ -352,9 +370,6 @@ void app_display_init(void)
     delay_ms(120U);
     LCD_Clear(BLACK);
 
-    POINT_COLOR = WHITE;
-    BACK_COLOR = BLACK;
-    show_text_line(10U, 300U, "USART1: 115200 8N1", GRAY);
     s_refresh_requested = 1U;
     s_has_rendered_page = 0U;
     s_last_refresh_us = 0U;
