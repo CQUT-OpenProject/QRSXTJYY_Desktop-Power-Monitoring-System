@@ -43,7 +43,7 @@ pub extern "C" fn pm_calc_power_x100(voltage_x100: u32, current_x1000: u32) -> u
     voltage_x100.saturating_mul(current_x1000) / 1000
 }
 
-/// 整数平方根（Newton's method，返回 floor(sqrt(n))）。
+/// 整数平方根。
 ///
 /// 用于 RMS 计算中把均方值开方得到有效值。
 fn isqrt(n: u64) -> u32 {
