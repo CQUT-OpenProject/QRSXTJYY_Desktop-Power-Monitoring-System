@@ -264,7 +264,6 @@ Rust 暴露给 C 调用的函数需要满足以下约定：
 
 | 函数 | 用途 |
 |------|------|
-| `pm_calc_power_x100(v, i)` | 电压 × 电流 → 功率（定点数） |
 | `pm_calc_electrical(v, i, ilk, count, ...)` | 从三通道 ADC 样点计算 Vrms/Irms/漏电流/P/S/PF |
 
 生成规则位于：

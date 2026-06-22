@@ -191,13 +191,12 @@ uint32_t app_capture_get_time_us(void)
     return (high << 16) | low;
 }
 
-uint8_t app_capture_take_report(uint32_t *freq_x100)
+uint8_t app_capture_take_report(void)
 {
     if (s_report_pending == 0U) {
         return 0U;
     }
 
-    *freq_x100 = s_report_freq_x100;
     s_report_pending = 0U;
     return 1U;
 }

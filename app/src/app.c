@@ -34,7 +34,6 @@ void app_run(void)
 {
     static app_monitor_state_t display_state;
     char report_line[APP_COMMAND_RESPONSE_LINE_MAX];
-    uint32_t report_freq_x100;
     uint32_t now_us;
     uint8_t display_changed;
     app_key_event_t key;
@@ -47,8 +46,7 @@ void app_run(void)
         app_adc_task();
 
         if (app_command_get_auto_report_enabled() != 0U &&
-            app_capture_take_report(&report_freq_x100) != 0U) {
-            (void)report_freq_x100;
+            app_capture_take_report() != 0U) {
             app_monitor_state_read(&display_state);
             app_command_format_status(&display_state, report_line, sizeof(report_line));
             app_protocol_send_report_line(report_line);

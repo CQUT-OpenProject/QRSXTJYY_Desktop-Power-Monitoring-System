@@ -49,9 +49,8 @@ uint32_t app_capture_get_time_us(void);
 /**
  * @brief 取出一条待上报的频率测量结果。
  *
- * @param freq_x100 输出参数，写入频率值 (Hz × 100)。
  * @return 1 表示有新结果待上报，0 表示无。
  */
-uint8_t app_capture_take_report(uint32_t *freq_x100);
+uint8_t app_capture_take_report(void);
 
 #endif

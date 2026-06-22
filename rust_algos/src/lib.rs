@@ -33,15 +33,7 @@ pub struct PmElectricalResult {
     pub reserved: u16,
 }
 
-/// 计算功率的定点数结果。
-///
-/// voltage_x100 表示电压，单位为 0.01 V。
-/// current_x1000 表示电流，单位为 0.001 A。
-/// 返回值表示功率，单位为 0.01 W。
-#[no_mangle]
-pub extern "C" fn pm_calc_power_x100(voltage_x100: u32, current_x1000: u32) -> u32 {
-    voltage_x100.saturating_mul(current_x1000) / 1000
-}
+
 
 /// 整数平方根。
 ///

@@ -47,15 +47,6 @@ extern "C" {
 #endif // __cplusplus
 
 /**
- * 计算功率的定点数结果。
- *
- * voltage_x100 表示电压，单位为 0.01 V。
- * current_x1000 表示电流，单位为 0.001 A。
- * 返回值表示功率，单位为 0.01 W。
- */
-uint32_t pm_calc_power_x100(uint32_t voltage_x100, uint32_t current_x1000);
-
-/**
  * 从 ADC 原始样点计算单相电参数。
  *
  * # 参数
