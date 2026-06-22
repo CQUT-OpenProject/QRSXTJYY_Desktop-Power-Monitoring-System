@@ -2,7 +2,7 @@
 
 | GPIO | STM32 外设/模式 | 本项目分配 | 连接对象 / miniIO 引脚 | 方向 | 是否实际使用 | 冲突与处理 |
 | --- | --- | --- | --- | --- | --- | --- |
-| PA0 | GPIO 输入下拉 | KEYUP `MENU_CONFIRM` | WK_UP / DS18B20_DQ | 输入 | 是 | KEYUP 高有效；不接 DS18B20 跳线 |
+| PA0 | GPIO 输入下拉 | KEYUP `MENU_UP` | WK_UP / DS18B20_DQ | 输入 | 是 | KEYUP 高有效；不接 DS18B20 跳线 |
 | PA1 | TIM2_CH2 输入捕获 | 市电频率测量输入 `FR_IN` | miniIO `fr`，JP1-13/14 | 输入 | 是 | 原 NRF_IRQ / REMOTE_IN；不插 NRF，不接红外跳线 |
 | PA2 | GPIO 推挽输出 | W25Q64 片选禁用 `FLASH_CS` | 板载 W25Q64 F_CS | 输出 | 是，安全态 | 上电后置高，避免 SPI Flash 被误选中 |
 | PA3 | GPIO 推挽输出 | SD 卡片选禁用 `SD_CS` | 板载 SD_CS | 输出 | 是，安全态 | 上电后置高，避免 SD 卡被误选中 |
@@ -17,7 +17,7 @@
 | PA12 | USB_D+ | 保留 | 板载 USB D+ | USB/保留 | 否 | 不作普通 GPIO |
 | PA13 | SWDIO | 下载调试接口 | ST-LINK / JTAG-SWD | 双向 | 是，调试 | 必须保留 |
 | PA14 | SWCLK | 下载调试接口 | ST-LINK / JTAG-SWD | 输入 | 是，调试 | 必须保留 |
-| PA15 | GPIO 输入上拉 | KEY1 `MENU_UP` | KEY1 / PS_CLK / JTDI | 输入 | 是 | 关闭 JTAG、保留 SWD；KEY1 低有效 |
+| PA15 | GPIO 输入上拉 | KEY1 `MENU_DOWN` | KEY1 / PS_CLK / JTDI | 输入 | 是 | 关闭 JTAG、保留 SWD；KEY1 低有效 |
 | PB0 | GPIO 推挽输出 | LCD_D0 | TFTLCD 数据线 D0 | 输出 | 是 | LCD 占用 |
 | PB1 | GPIO 推挽输出 | LCD_D1 | TFTLCD 数据线 D1 | 输出 | 是 | LCD 占用 |
 | PB2 | GPIO 推挽输出 | LCD_D2 | TFTLCD 数据线 D2 | 输出 | 是 | 同 BOOT1；仅上电采样，运行期给 LCD 用 |
@@ -39,7 +39,7 @@
 | PC2 | ADC1_IN12 | 漏电电流采样 `ADC_ILK` | miniIO `iLK`，JP1-15/16 | 模拟输入 | 是 | 原触摸屏 T_MISO；本方案禁用触摸屏 |
 | PC3 | ADC1_IN13 | 电流采样 `ADC_IL` | miniIO 飞线至 JP1-17/18 | 模拟输入 | 是 | 原触摸屏 T_MOSI；触摸屏禁用后可安全使用 |
 | PC4 | GPIO 推挽输出 | MAX7219 时钟 `MAX7219_CLK` | miniIO `CLK`，JP1-3/4 | 输出 | 预留，当前未启用 | 原 NRF_CS；不插 NRF 模块 |
-| PC5 | GPIO 输入上拉 | KEY0 `MENU_DOWN` | KEY0 / PS_DAT | 输入 | 是 | KEY0 低有效；当前不启用 MAX7219 |
+| PC5 | GPIO 输入上拉 | KEY0 `MENU_CONFIRM` | KEY0 / PS_DAT | 输入 | 是 | KEY0 低有效；当前不启用 MAX7219 |
 | PC6 | GPIO 推挽输出 | LCD_RD | TFTLCD RD | 输出 | 是 | LCD 占用 |
 | PC7 | GPIO 推挽输出 | LCD_WR | TFTLCD WR | 输出 | 是 | LCD 占用 |
 | PC8 | GPIO 推挽输出 | LCD_RS | TFTLCD RS | 输出 | 是 | LCD 占用 |
