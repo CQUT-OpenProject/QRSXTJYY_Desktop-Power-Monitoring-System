@@ -12,18 +12,39 @@
 #define DISPLAY_DA_GRAPH_HEIGHT 120U
 #define DISPLAY_DA_AXIS_TICK 4U
 
+/* ponytail: 统一布局常量，各页面共享 */
+#define UI_TITLE_Y        16U     /* 标题行 y */
+#define UI_SEP_Y          36U     /* 标题下分隔线 y */
+#define UI_CONTENT_Y      44U     /* 内容区起始 y */
+#define UI_ITEM_STEP      28U     /* 菜单项行距 */
+#define UI_BACK_Y         280U    /* "Back Home" 固定 y */
+#define UI_LEFT           24U     /* 内容区左边距 */
+#define UI_FONT_H         16U     /* 字体高度 */
+#define UI_BAR_PAD        2U      /* 高亮条上下内边距 */
+#define UI_HIGHLIGHT_BG   DARKBLUE  /* 选中项背景色 */
+
 static uint8_t s_refresh_requested = 1U;
 static app_ui_page_t s_rendered_page = APP_UI_PAGE_MENU;
 static uint8_t s_has_rendered_page;
 static uint32_t s_last_refresh_us;
 
-/** 在 LCD 指定位置显示一行文本。先清除背景避免旧字符残留。 */
-static void show_text_line(uint16_t x, uint16_t y, const char *text, uint16_t color)
+/* ponytail: forward decl, show_title needs it before definition */
+static void draw_line_color(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);
+
+/** 在 LCD 指定位置显示一行文本，支持自定义背景色。 */
+static void show_text_line_bg(uint16_t x, uint16_t y, const char *text,
+                              uint16_t color, uint16_t bg)
 {
     POINT_COLOR = color;
-    BACK_COLOR = BLACK;
-    LCD_Fill(x, y, lcddev.width - 1U, (uint16_t)(y + 15U), BLACK);
-    LCD_ShowString(x, y, (uint16_t)(lcddev.width - x), 16U, 16U, (u8 *)text);
+    BACK_COLOR = bg;
+    LCD_Fill(x, y, lcddev.width - 1U, (uint16_t)(y + UI_FONT_H - 1U), bg);
+    LCD_ShowString(x, y, (uint16_t)(lcddev.width - x), UI_FONT_H, UI_FONT_H, (u8 *)text);
+}
+
+/** 在 LCD 指定位置显示一行文本（黑色背景）。 */
+static void show_text_line(uint16_t x, uint16_t y, const char *text, uint16_t color)
+{
+    show_text_line_bg(x, y, text, color, BLACK);
 }
 
 /** 清除整个屏幕内容。 */
@@ -32,13 +53,23 @@ static void clear_content_area(void)
     LCD_Fill(0U, 0U, lcddev.width - 1U, lcddev.height - 1U, BLACK);
 }
 
-/** 显示一行菜单项，selected 时加 '>' 光标并设为黄色。 */
+/** 显示页面标题 + 分隔线。 */
+static void show_title(const char *text)
+{
+    show_text_line(10U, UI_TITLE_Y, text, CYAN);
+    draw_line_color(0U, UI_SEP_Y, (uint16_t)(lcddev.width - 1U), UI_SEP_Y, GRAYBLUE);
+}
+
+/** 显示一行菜单项，选中时用深蓝高亮条 + 黄字，未选中黑底白字。 */
 static void show_menu_item(uint8_t selected, uint16_t y, const char *text)
 {
-    char line[48];
+    uint16_t bar_top = (uint16_t)(y - UI_BAR_PAD);
+    uint16_t bar_bot = (uint16_t)(y + UI_FONT_H + UI_BAR_PAD - 1U);
+    uint16_t bg = selected != 0U ? UI_HIGHLIGHT_BG : BLACK;
+    uint16_t fg = selected != 0U ? YELLOW : WHITE;
 
-    snprintf(line, sizeof(line), "%c %s", selected != 0U ? '>' : ' ', text);
-    show_text_line(18U, y, line, selected != 0U ? YELLOW : WHITE);
+    LCD_Fill(0U, bar_top, lcddev.width - 1U, bar_bot, bg);
+    show_text_line_bg(UI_LEFT, y, text, fg, bg);
 }
 
 /** 用指定颜色绘制一条线段。 */
@@ -137,32 +168,33 @@ static void render_adc_page(const app_monitor_state_t *state, const app_ui_state
 {
     char line[64];
     const app_electrical_params_t *p = state->adc.params;
-    uint16_t y = 56U;
+    /* ponytail: 标签统一 5 字符宽 + 冒号，数值从固定列开始 */
+    uint16_t y = UI_CONTENT_Y;
 
-    show_text_line(10U, 20U, "AC Measure", CYAN);
+    show_title("AC Measure");
 
     if (p == 0) {
-        show_text_line(18U, y, "No data", GRAY);
-        show_menu_item(ui->cursor == 0U, 268U, "Back Home");
+        show_text_line(UI_LEFT, y, "No data", GRAY);
+        show_menu_item(ui->cursor == 0U, UI_BACK_Y, "Back Home");
         return;
     }
 
-    snprintf(line, sizeof(line), "Vrms:   %lu.%02lu V",
+    snprintf(line, sizeof(line), "Vrms: %lu.%02lu V",
              (unsigned long)(p->vrms_x100 / 100U),
              (unsigned long)(p->vrms_x100 % 100U));
-    show_text_line(18U, y, line, WHITE);
+    show_text_line(UI_LEFT, y, line, WHITE);
     y = (uint16_t)(y + 22U);
 
-    snprintf(line, sizeof(line), "Irms:   %lu.%03lu A",
+    snprintf(line, sizeof(line), "Irms: %lu.%03lu A",
              (unsigned long)(p->irms_x1000 / 1000U),
              (unsigned long)(p->irms_x1000 % 1000U));
-    show_text_line(18U, y, line, WHITE);
+    show_text_line(UI_LEFT, y, line, WHITE);
     y = (uint16_t)(y + 22U);
 
-    snprintf(line, sizeof(line), "Ilk:    %lu.%03lu A",
+    snprintf(line, sizeof(line), "Ilk:  %lu.%03lu A",
              (unsigned long)(p->ilk_rms_x1000 / 1000U),
              (unsigned long)(p->ilk_rms_x1000 % 1000U));
-    show_text_line(18U, y, line, WHITE);
+    show_text_line(UI_LEFT, y, line, WHITE);
     y = (uint16_t)(y + 22U);
 
     {
@@ -175,30 +207,30 @@ static void render_adc_page(const app_monitor_state_t *state, const app_ui_state
         } else {
             p_abs = (uint32_t)pw;
         }
-        snprintf(line, sizeof(line), "P:     %s%lu.%01lu W",
+        snprintf(line, sizeof(line), "P:    %s%lu.%01lu W",
                  sign,
                  (unsigned long)(p_abs / 10U),
                  (unsigned long)(p_abs % 10U));
     }
-    show_text_line(18U, y, line, WHITE);
+    show_text_line(UI_LEFT, y, line, WHITE);
     y = (uint16_t)(y + 22U);
 
-    snprintf(line, sizeof(line), "S:      %lu.%01lu VA",
+    snprintf(line, sizeof(line), "S:    %lu.%01lu VA",
              (unsigned long)(p->apparent_power_x10 / 10U),
              (unsigned long)(p->apparent_power_x10 % 10U));
-    show_text_line(18U, y, line, WHITE);
+    show_text_line(UI_LEFT, y, line, WHITE);
     y = (uint16_t)(y + 22U);
 
-    snprintf(line, sizeof(line), "PF:     %lu.%03lu",
+    snprintf(line, sizeof(line), "PF:   %lu.%03lu",
              (unsigned long)(p->power_factor_x1000 / 1000U),
              (unsigned long)(p->power_factor_x1000 % 1000U));
-    show_text_line(18U, y, line, WHITE);
+    show_text_line(UI_LEFT, y, line, WHITE);
     y = (uint16_t)(y + 22U);
 
-    snprintf(line, sizeof(line), "CAL:    %s",
+    snprintf(line, sizeof(line), "CAL:  %s",
              p->zero_calibrated != 0U ? "YES" : "NO");
-    show_text_line(18U, (uint16_t)(y + 10U), line, GRAY);
-    y = (uint16_t)(y + 32U);
+    show_text_line(UI_LEFT, y, line, GRAY);
+    y = (uint16_t)(y + 22U);
 
     if (state->adc.channels[0].samples != 0) {
         uint16_t min_code = 4095U;
@@ -210,37 +242,58 @@ static void render_adc_page(const app_monitor_state_t *state, const app_ui_state
             if (v > max_code) { max_code = v; }
         }
         snprintf(line, sizeof(line), "V ADC min=%u max=%u", min_code, max_code);
-        show_text_line(18U, y, line, GRAY);
+        show_text_line(UI_LEFT, y, line, GRAY);
     }
 
-    show_menu_item(ui->cursor == 0U, 268U, "Back Home");
+    show_menu_item(ui->cursor == 0U, UI_BACK_Y, "Back Home");
 }
 
 /** 渲染主菜单页面。 */
 static void render_main_menu(const app_ui_state_t *ui)
 {
-    show_text_line(10U, 20U, "Main Menu", CYAN);
-    show_menu_item(ui->cursor == 0U, 70U, "Square Wave");
-    show_menu_item(ui->cursor == 1U, 102U, "Freq Measure");
-    show_menu_item(ui->cursor == 2U, 134U, "DA Wave");
-    show_menu_item(ui->cursor == 3U, 166U, "AC Measure");
-    show_menu_item(ui->cursor == 4U, 198U, "INFO");
+    uint16_t y = UI_CONTENT_Y;
+
+    show_title("Main Menu");
+    show_menu_item(ui->cursor == 0U, y, "Square Wave");
+    y = (uint16_t)(y + UI_ITEM_STEP);
+    show_menu_item(ui->cursor == 1U, y, "Freq Measure");
+    y = (uint16_t)(y + UI_ITEM_STEP);
+    show_menu_item(ui->cursor == 2U, y, "DA Wave");
+    y = (uint16_t)(y + UI_ITEM_STEP);
+    show_menu_item(ui->cursor == 3U, y, "AC Measure");
+    y = (uint16_t)(y + UI_ITEM_STEP);
+    show_menu_item(ui->cursor == 4U, y, "System Info");
 }
 
 /** 渲染 PWM 频率设置页。编辑中显示草稿值，确认后才写入 TIM1。 */
 static void render_pwm_page(const app_monitor_state_t *state, const app_ui_state_t *ui)
 {
     char line[64];
+    uint16_t freq_color;
 
-    show_text_line(10U, 20U, "Square Wave", CYAN);
+    show_title("Square Wave");
 
-    snprintf(line, sizeof(line), "%c PWM Freq: %lu Hz %s",
-             ui->cursor == 0U ? '>' : ' ',
+    /* ponytail: 编辑态用 GREEN 区分，正常用高亮条自带颜色 */
+    if (ui->editing != 0U && ui->cursor == 0U) {
+        freq_color = GREEN;
+    } else if (ui->cursor == 0U) {
+        freq_color = YELLOW;
+    } else {
+        freq_color = WHITE;
+    }
+
+    snprintf(line, sizeof(line), "PWM Freq: %lu Hz %s",
              (unsigned long)(ui->editing != 0U ? ui->pwm_edit_frequency_hz : state->pwm_output.frequency_hz),
              ui->editing != 0U ? "[edit]" : "");
-    show_text_line(18U, 70U, line, ui->cursor == 0U ? YELLOW : WHITE);
+    {
+        uint16_t bar_top = (uint16_t)(UI_CONTENT_Y - UI_BAR_PAD);
+        uint16_t bar_bot = (uint16_t)(UI_CONTENT_Y + UI_FONT_H + UI_BAR_PAD - 1U);
+        uint16_t bg = ui->cursor == 0U ? UI_HIGHLIGHT_BG : BLACK;
+        LCD_Fill(0U, bar_top, lcddev.width - 1U, bar_bot, bg);
+        show_text_line_bg(UI_LEFT, UI_CONTENT_Y, line, freq_color, bg);
+    }
 
-    show_menu_item(ui->cursor == 1U, 102U, "Back Home");
+    show_menu_item(ui->cursor == 1U, (uint16_t)(UI_CONTENT_Y + UI_ITEM_STEP), "Back Home");
 }
 
 /** 渲染频率测量和串口上报设置页。 */
@@ -248,19 +301,25 @@ static void render_measure_page(const app_monitor_state_t *state, const app_ui_s
 {
     char line[64];
 
-    show_text_line(10U, 20U, "Freq Measure", CYAN);
+    show_title("Freq Measure");
 
-    snprintf(line, sizeof(line), "%c Serial Report: %s",
-             ui->cursor == 0U ? '>' : ' ',
+    snprintf(line, sizeof(line), "Serial Report: %s",
              ui->serial_auto_report_enabled != 0U ? "ON" : "OFF");
-    show_text_line(18U, 64U, line, ui->cursor == 0U ? YELLOW : WHITE);
+    {
+        uint16_t bg = ui->cursor == 0U ? UI_HIGHLIGHT_BG : BLACK;
+        uint16_t fg = ui->cursor == 0U ? YELLOW : WHITE;
+        uint16_t bar_top = (uint16_t)(UI_CONTENT_Y - UI_BAR_PAD);
+        uint16_t bar_bot = (uint16_t)(UI_CONTENT_Y + UI_FONT_H + UI_BAR_PAD - 1U);
+        LCD_Fill(0U, bar_top, lcddev.width - 1U, bar_bot, bg);
+        show_text_line_bg(UI_LEFT, UI_CONTENT_Y, line, fg, bg);
+    }
 
-    show_menu_item(ui->cursor == 1U, 96U, "Back Home");
+    show_menu_item(ui->cursor == 1U, (uint16_t)(UI_CONTENT_Y + UI_ITEM_STEP), "Back Home");
 
     snprintf(line, sizeof(line), "PA1 Measure: %lu.%02lu Hz",
              (unsigned long)(state->mains_frequency.frequency_x100 / 100U),
              (unsigned long)(state->mains_frequency.frequency_x100 % 100U));
-    show_text_line(10U, 144U, line, GREEN);
+    show_text_line(10U, (uint16_t)(UI_CONTENT_Y + UI_ITEM_STEP * 3U), line, GREEN);
 }
 
 /** 渲染 DAC 波形监看页：配置参数 + CH1/CH2 波形曲线。 */
@@ -280,20 +339,20 @@ static void render_da_page(const app_monitor_state_t *state, const app_ui_state_
         count = APP_DAC_TABLE_SIZE;
     }
 
-    show_text_line(10U, 20U, "DA Wave", CYAN);
+    show_title("DA Wave");
 
     snprintf(line, sizeof(line), "Mode:%s Freq:%luHz",
              state->dac_output.config.mode == APP_DAC_MODE_DUAL ? "DUAL" : "SINGLE",
              (unsigned long)state->dac_output.config.frequency_hz);
-    show_text_line(10U, 52U, line, WHITE);
+    show_text_line(10U, UI_CONTENT_Y, line, WHITE);
 
     snprintf(line, sizeof(line), "Amp:%u Phase:%u",
              state->dac_output.config.amplitude,
              state->dac_output.config.phase_degrees);
-    show_text_line(10U, 76U, line, WHITE);
+    show_text_line(10U, (uint16_t)(UI_CONTENT_Y + 22U), line, WHITE);
 
-    show_text_line(10U, 100U, "CH1 Green  CH2 Yellow", GRAY);
-    show_menu_item(ui->cursor == 0U, 268U, "Back Home");
+    show_text_line(10U, (uint16_t)(UI_CONTENT_Y + 44U), "CH1 Green  CH2 Yellow", GRAY);
+    show_menu_item(ui->cursor == 0U, UI_BACK_Y, "Back Home");
 
     LCD_Fill((uint16_t)(graph_left - DISPLAY_DA_AXIS_TICK),
              graph_top,
@@ -322,15 +381,19 @@ static void render_da_page(const app_monitor_state_t *state, const app_ui_state_
 static void render_info_page(const app_ui_state_t *ui)
 {
     char line[64];
+    uint16_t y = UI_CONTENT_Y;
 
-    show_text_line(10U, 20U, "System Info", CYAN);
+    show_title("System Info");
     snprintf(line, sizeof(line), "Firmware: %s", APP_FIRMWARE_VERSION);
-    show_text_line(18U, 70U, line, WHITE);
-    show_text_line(18U, 102U, "USART: USART1", WHITE);
-    show_text_line(18U, 134U, "Baudrate: 115200", WHITE);
-    show_text_line(18U, 166U, "Frame Config: 8N1", WHITE);
+    show_text_line(UI_LEFT, y, line, WHITE);
+    y = (uint16_t)(y + UI_ITEM_STEP);
+    show_text_line(UI_LEFT, y, "USART: USART1", WHITE);
+    y = (uint16_t)(y + UI_ITEM_STEP);
+    show_text_line(UI_LEFT, y, "Baudrate: 115200", WHITE);
+    y = (uint16_t)(y + UI_ITEM_STEP);
+    show_text_line(UI_LEFT, y, "Frame Config: 8N1", WHITE);
 
-    show_menu_item(ui->cursor == 0U, 268U, "Back Home");
+    show_menu_item(ui->cursor == 0U, UI_BACK_Y, "Back Home");
 }
 
 /** 根据当前页面刷新 LCD。换页时先清内容区避免残留。 */
