@@ -9,9 +9,9 @@
 
 typedef enum {
     APP_KEY_EVENT_NONE = 0,     /**< 无新事件。 */
-    APP_KEY_EVENT_UP,           /**< 菜单向上，来自 KEY1(PA15)。 */
-    APP_KEY_EVENT_DOWN,         /**< 菜单向下，来自 KEY0(PC5)。 */
-    APP_KEY_EVENT_CONFIRM       /**< 确认/进入，来自 KEYUP(PA0)。 */
+    APP_KEY_EVENT_UP,           /**< 菜单向上，来自 KEYUP(PA0)。 */
+    APP_KEY_EVENT_DOWN,         /**< 菜单向下，来自 KEY1(PA15)。 */
+    APP_KEY_EVENT_CONFIRM       /**< 确认/进入，来自 KEY0(PC5)。 */
 } app_key_event_t;
 
 /**

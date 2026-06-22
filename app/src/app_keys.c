@@ -18,14 +18,14 @@ static uint8_t read_raw_keys(void)
 {
     uint8_t raw = 0U;
 
-    /* KEY1(PA15)/KEY0(PC5) 低有效；KEYUP(PA0) 高有效 */
-    if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_15) == Bit_RESET) {
+    /* KEYUP(PA0) 高有效；KEY1(PA15) 低有效；KEY0(PC5) 低有效 */
+    if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0) == Bit_SET) {
         raw |= APP_KEY_RAW_UP;
     }
-    if (GPIO_ReadInputDataBit(GPIOC, GPIO_Pin_5) == Bit_RESET) {
+    if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_15) == Bit_RESET) {
         raw |= APP_KEY_RAW_DOWN;
     }
-    if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0) == Bit_SET) {
+    if (GPIO_ReadInputDataBit(GPIOC, GPIO_Pin_5) == Bit_RESET) {
         raw |= APP_KEY_RAW_CONFIRM;
     }
 
