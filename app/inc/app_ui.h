@@ -10,11 +10,11 @@
 #include <stdint.h>
 
 typedef enum {
-    APP_UI_PAGE_MENU = 0,    /**< 顶层菜单页。 */
+    APP_UI_PAGE_DASHBOARD = 0, /**< 主仪表盘页。 */
+    APP_UI_PAGE_TEST_MENU,   /**< 顶层测试菜单页。 */
     APP_UI_PAGE_PWM,         /**< PWM 频率设置页。 */
     APP_UI_PAGE_MEASURE,     /**< 频率测量和串口上报设置页。 */
     APP_UI_PAGE_DA,          /**< DAC 波形监看页。 */
-    APP_UI_PAGE_ADC,         /**< 电参数测量页。 */
     APP_UI_PAGE_INFO         /**< 系统信息页。 */
 } app_ui_page_t;
 

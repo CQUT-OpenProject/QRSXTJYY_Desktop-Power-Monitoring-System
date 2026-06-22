@@ -65,8 +65,10 @@ void app_adc_init(void);
  *
  * 极短临界区（关中断仅取 ready 帧编号）→ 整帧复制到工作帧 → 调用 Rust 算法
  * → 更新显示帧快照，供 LCD/串口/CAL ZERO 安全读取。
+ *
+ * @return 1 表示更新了新的一帧数据，0 表示无新数据。
  */
-void app_adc_task(void);
+uint8_t app_adc_task(void);
 
 /**
  * @brief DMA1_Channel1 半传输/传输完成中断入口转发函数。

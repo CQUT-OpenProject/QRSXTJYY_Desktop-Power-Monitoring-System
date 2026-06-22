@@ -5,11 +5,11 @@
 #include "app_pwm.h"
 
 #define APP_UI_PWM_STEP_HZ 1U
-#define APP_UI_MENU_ITEMS 5U
+#define APP_UI_DASHBOARD_ITEMS 1U
+#define APP_UI_TEST_MENU_ITEMS 5U
 #define APP_UI_PWM_ITEMS 2U
 #define APP_UI_MEASURE_ITEMS 2U
 #define APP_UI_DA_ITEMS 1U
-#define APP_UI_ADC_ITEMS 1U
 #define APP_UI_INFO_ITEMS 1U
 
 static app_ui_state_t s_state;
@@ -17,6 +17,12 @@ static app_ui_state_t s_state;
 /** 获取当前页面可选项目数，用于光标环绕。 */
 static uint8_t item_count_for_page(app_ui_page_t page)
 {
+    if (page == APP_UI_PAGE_DASHBOARD) {
+        return APP_UI_DASHBOARD_ITEMS;
+    }
+    if (page == APP_UI_PAGE_TEST_MENU) {
+        return APP_UI_TEST_MENU_ITEMS;
+    }
     if (page == APP_UI_PAGE_PWM) {
         return APP_UI_PWM_ITEMS;
     }
@@ -26,13 +32,10 @@ static uint8_t item_count_for_page(app_ui_page_t page)
     if (page == APP_UI_PAGE_DA) {
         return APP_UI_DA_ITEMS;
     }
-    if (page == APP_UI_PAGE_ADC) {
-        return APP_UI_ADC_ITEMS;
-    }
     if (page == APP_UI_PAGE_INFO) {
         return APP_UI_INFO_ITEMS;
     }
-    return APP_UI_MENU_ITEMS;
+    return 1U;
 }
 
 /** 按方向移动光标，支持环绕。 */
@@ -71,16 +74,10 @@ static void toggle_pwm_edit(void)
     }
 }
 
-/** 返回主菜单并清除编辑状态。 */
-static void enter_menu(void)
-{
-    s_state.page = APP_UI_PAGE_MENU;
-    s_state.cursor = 0U;
-    s_state.editing = 0U;
-}
 
-/** 主菜单确认：0→PWM, 1→MEASURE, 2→DA, 3→ADC, 4→INFO。 */
-static void handle_menu_confirm(void)
+
+/** Test Menu确认：0→PWM, 1→MEASURE, 2→DA, 3→INFO, 4→DASHBOARD。 */
+static void handle_test_menu_confirm(void)
 {
     if (s_state.cursor == 0U) {
         s_state.page = APP_UI_PAGE_PWM;
@@ -89,22 +86,26 @@ static void handle_menu_confirm(void)
     } else if (s_state.cursor == 2U) {
         s_state.page = APP_UI_PAGE_DA;
     } else if (s_state.cursor == 3U) {
-        s_state.page = APP_UI_PAGE_ADC;
-    } else {
         s_state.page = APP_UI_PAGE_INFO;
+    } else {
+        s_state.page = APP_UI_PAGE_DASHBOARD;
     }
     s_state.cursor = 0U;
     s_state.editing = 0U;
 }
 
-/** 功能页面确认：PWM/MEASURE 第 0 项操作，第 1 项返回；DA/ADC/INFO 直接返回。 */
+/** 功能页面确认：PWM/MEASURE 第 0 项操作，第 1 项返回；DA/INFO/DASHBOARD 直接返回。 */
 static void handle_page_confirm(void)
 {
-    if (s_state.page == APP_UI_PAGE_PWM) {
+    if (s_state.page == APP_UI_PAGE_DASHBOARD) {
+        s_state.page = APP_UI_PAGE_TEST_MENU;
+        s_state.cursor = 0U;
+    } else if (s_state.page == APP_UI_PAGE_PWM) {
         if (s_state.cursor == 0U) {
             toggle_pwm_edit();
         } else {
-            enter_menu();
+            s_state.page = APP_UI_PAGE_TEST_MENU;
+            s_state.cursor = 0U;
         }
     } else if (s_state.page == APP_UI_PAGE_MEASURE) {
         if (s_state.cursor == 0U) {
@@ -113,20 +114,21 @@ static void handle_page_confirm(void)
                 (uint8_t)(s_state.serial_auto_report_enabled == 0U ? 1U : 0U);
             app_command_set_auto_report_enabled(s_state.serial_auto_report_enabled);
         } else {
-            enter_menu();
+            s_state.page = APP_UI_PAGE_TEST_MENU;
+            s_state.cursor = 0U;
         }
     } else if (s_state.page == APP_UI_PAGE_DA) {
-        enter_menu();
-    } else if (s_state.page == APP_UI_PAGE_ADC) {
-        enter_menu();
+        s_state.page = APP_UI_PAGE_TEST_MENU;
+        s_state.cursor = 0U;
     } else if (s_state.page == APP_UI_PAGE_INFO) {
-        enter_menu();
+        s_state.page = APP_UI_PAGE_TEST_MENU;
+        s_state.cursor = 0U;
     }
 }
 
 void app_ui_init(void)
 {
-    s_state.page = APP_UI_PAGE_MENU;
+    s_state.page = APP_UI_PAGE_DASHBOARD;
     s_state.cursor = 0U;
     s_state.editing = 0U;
     s_state.serial_auto_report_enabled = app_command_get_auto_report_enabled();
@@ -161,8 +163,8 @@ uint8_t app_ui_handle_key(app_key_event_t key)
     } else if (key == APP_KEY_EVENT_DOWN) {
         move_cursor(1);
     } else if (key == APP_KEY_EVENT_CONFIRM) {
-        if (s_state.page == APP_UI_PAGE_MENU) {
-            handle_menu_confirm();
+        if (s_state.page == APP_UI_PAGE_TEST_MENU) {
+            handle_test_menu_confirm();
         } else {
             handle_page_confirm();
         }

@@ -35,15 +35,26 @@ void app_run(void)
     static app_monitor_state_t display_state;
     char report_line[APP_COMMAND_RESPONSE_LINE_MAX];
     uint32_t now_us;
-    uint8_t display_changed;
     app_key_event_t key;
+    uint8_t display_changed;
+    const app_ui_state_t *ui_state;
 
     while (1) {
         now_us = app_capture_get_time_us();
 
         display_changed = app_protocol_task(now_us);
         app_capture_task();
-        app_adc_task();
+        
+        uint8_t adc_updated = app_adc_task();
+        ui_state = app_ui_get_state();
+        if (adc_updated != 0U && ui_state->page == APP_UI_PAGE_DASHBOARD) {
+            static uint8_t adc_divider = 0U;
+            adc_divider++;
+            if (adc_divider >= 2U) { // Rate limit dashboard updates to 25Hz (50Hz / 2)
+                adc_divider = 0U;
+                display_changed = 1U;
+            }
+        }
 
         if (app_command_get_auto_report_enabled() != 0U &&
             app_capture_take_report() != 0U) {
@@ -61,6 +72,6 @@ void app_run(void)
         if (display_changed != 0U) {
             app_display_request_refresh();
         }
-        app_display_task(&display_state, app_ui_get_state());
+        app_display_task(&display_state, ui_state);
     }
 }

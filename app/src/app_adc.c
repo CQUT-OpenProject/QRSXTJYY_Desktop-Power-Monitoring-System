@@ -303,7 +303,7 @@ void app_adc_dma1_ch1_irq_handler(void)
  * 4. 调用 Rust 定点数算法库计算电参数；
  * 5. 更新显示帧快照，供 LCD/串口/CAL ZERO 安全读取。
  */
-void app_adc_task(void)
+uint8_t app_adc_task(void)
 {
     uint8_t ri;
 
@@ -311,7 +311,7 @@ void app_adc_task(void)
     __disable_irq();
     if (s_adc_ready == 0U) {
         __enable_irq();
-        return;
+        return 0U;
     }
     ri = s_adc_ready_idx;
     s_adc_ready = 0U;
@@ -344,6 +344,8 @@ void app_adc_task(void)
 
     /* 更新显示帧快照 */
     s_adc_display_frame = s_adc_work_frame;
+
+    return 1U;
 }
 
 /* ================================================================== */

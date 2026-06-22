@@ -16,7 +16,7 @@ void app_display_init(void);
 /**
  * @brief 显示周期任务，在主循环中调用。
  *
- * 有刷新请求或距上次刷新超过 500 ms 时重绘当前页面。
+ * 有刷新请求或距上次刷新超过 33 ms 时重绘当前页面。
  *
  * @param state 监控状态快照。
  * @param ui    UI 菜单状态。
