@@ -253,8 +253,9 @@ static void render_dashboard_page(const app_monitor_state_t *state, const app_ui
         snprintf(line1, sizeof(line1), "PF %3lu.%02lu",
                  (unsigned long)(p->power_factor_x1000 / 1000U),
                  (unsigned long)((p->power_factor_x1000 % 1000U) / 10U));
-        snprintf(line2, sizeof(line2), "CAL %s",
-                 p->zero_calibrated != 0U ? "Y" : "N");
+        snprintf(line2, sizeof(line2), "Hz %2lu.%02luHz",
+                 (unsigned long)(state->mains_frequency.frequency_x100 / 100U),
+                 (unsigned long)(state->mains_frequency.frequency_x100 % 100U));
         show_text_line(10U, param_y, line1, WHITE);
         show_text_line(120U, param_y, line2, GRAY);
     }
