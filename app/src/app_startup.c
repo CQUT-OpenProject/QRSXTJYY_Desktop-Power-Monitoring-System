@@ -8,6 +8,7 @@
 #include "app_keys.h"
 #include "app_protocol.h"
 #include "app_pwm.h"
+#include "app_relay.h"
 #include "app_ui.h"
 #include "board.h"
 
@@ -21,6 +22,7 @@
 void app_startup_init(void)
 {
     board_init();
+    app_relay_init();
     app_display_init();
     app_keys_init();
     app_protocol_init();

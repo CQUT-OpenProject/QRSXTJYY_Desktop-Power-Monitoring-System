@@ -3,6 +3,7 @@
 #include "app_command.h"
 #include "app_config.h"
 #include "app_pwm.h"
+#include "app_relay.h"
 
 #define APP_UI_PWM_STEP_HZ 1U
 #define APP_UI_DASHBOARD_ITEMS 1U
@@ -36,6 +37,20 @@ static uint8_t item_count_for_page(app_ui_page_t page)
         return APP_UI_INFO_ITEMS;
     }
     return 1U;
+}
+
+/**
+ * @brief 根据页面状态同步继电器：Dashboard 吸合，其余释放。
+ *
+ * 只在页面发生实际切换时调用，不要在每帧 LCD 刷新中调用。
+ */
+static void ui_apply_relay_for_page(app_ui_page_t page)
+{
+    if (page == APP_UI_PAGE_DASHBOARD) {
+        app_relay_set(1U);
+    } else {
+        app_relay_set(0U);
+    }
 }
 
 /** 按方向移动光标，支持环绕。 */
@@ -92,6 +107,7 @@ static void handle_test_menu_confirm(void)
     }
     s_state.cursor = 0U;
     s_state.editing = 0U;
+    ui_apply_relay_for_page(s_state.page);
 }
 
 /** 功能页面确认：PWM/MEASURE 第 0 项操作，第 1 项返回；DA/INFO/DASHBOARD 直接返回。 */
@@ -124,6 +140,7 @@ static void handle_page_confirm(void)
         s_state.page = APP_UI_PAGE_TEST_MENU;
         s_state.cursor = 0U;
     }
+    ui_apply_relay_for_page(s_state.page);
 }
 
 void app_ui_init(void)
@@ -133,6 +150,8 @@ void app_ui_init(void)
     s_state.editing = 0U;
     s_state.serial_auto_report_enabled = app_command_get_auto_report_enabled();
     s_state.pwm_edit_frequency_hz = app_pwm_get_frequency();
+    /* UI 初始化完成后按初始页面（Dashboard）同步继电器状态 */
+    ui_apply_relay_for_page(s_state.page);
 }
 
 /**
