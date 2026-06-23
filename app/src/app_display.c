@@ -177,54 +177,12 @@ static void render_dashboard_page(const app_monitor_state_t *state, const app_ui
         return;
     }
 
-    /* 文本参数两列显示 */
-    snprintf(line1, sizeof(line1), "U:%3lu.%01luV",
-             (unsigned long)(p->vrms_x100 / 100U),
-             (unsigned long)((p->vrms_x100 % 100U) / 10U));
-    snprintf(line2, sizeof(line2), "I:%lu.%03luA",
-             (unsigned long)(p->irms_x1000 / 1000U),
-             (unsigned long)(p->irms_x1000 % 1000U));
-    show_text_line(10U, y, line1, YELLOW);
-    show_text_line(120U, y, line2, CYAN);
-    y = (uint16_t)(y + 20U);
-
-    {
-        int32_t pw = p->active_power_x10;
-        uint32_t p_abs;
-        const char *sign = "";
-        if (pw < 0) {
-            p_abs = (uint32_t)(-pw);
-            sign = "-";
-        } else {
-            p_abs = (uint32_t)pw;
-        }
-        snprintf(line1, sizeof(line1), "P:%s%lu.%01luW",
-                 sign,
-                 (unsigned long)(p_abs / 10U),
-                 (unsigned long)(p_abs % 10U));
-    }
-    snprintf(line2, sizeof(line2), "Lk:%lu.%01lumA",
-             (unsigned long)(p->ilk_rms_x1000 / 1000U),
-             (unsigned long)((p->ilk_rms_x1000 % 1000U) / 100U));
-    show_text_line(10U, y, line1, WHITE);
-    show_text_line(120U, y, line2, RED);
-    y = (uint16_t)(y + 20U);
-
-    snprintf(line1, sizeof(line1), "PF:%lu.%02lu",
-             (unsigned long)(p->power_factor_x1000 / 1000U),
-             (unsigned long)((p->power_factor_x1000 % 1000U) / 10U));
-    snprintf(line2, sizeof(line2), "CAL:%s",
-             p->zero_calibrated != 0U ? "Y" : "N");
-    show_text_line(10U, y, line1, WHITE);
-    show_text_line(120U, y, line2, GRAY);
-    y = (uint16_t)(y + 24U);
-
-    /* 绘制 ADC 波形 */
+    /* 绘制 ADC 波形 (上半区) */
     {
         uint16_t graph_left = DISPLAY_DA_GRAPH_X;
-        uint16_t graph_top = y;
+        uint16_t graph_top = UI_CONTENT_Y;
         uint16_t graph_width = (uint16_t)(lcddev.width - DISPLAY_DA_GRAPH_X - 8U);
-        uint16_t graph_height = (uint16_t)(UI_BACK_Y - y - 10U);
+        uint16_t graph_height = 148U; /* 固定的波形高度 */
         uint16_t graph_right = (uint16_t)(graph_left + graph_width - 1U);
         uint16_t graph_bottom = (uint16_t)(graph_top + graph_height - 1U);
         uint16_t graph_mid = (uint16_t)(graph_top + (graph_height / 2U));
@@ -256,6 +214,51 @@ static void render_dashboard_page(const app_monitor_state_t *state, const app_ui
         }
     }
 
+    /* 文本参数两列显示，小数点对齐，无冒号 (下半区) */
+    {
+        uint16_t param_y = 204U; /* 位于波形下方，避开 191 的底部和 280 的 Back Menu */
+
+        snprintf(line1, sizeof(line1), "U  %3lu.%01luV",
+                 (unsigned long)(p->vrms_x100 / 100U),
+                 (unsigned long)((p->vrms_x100 % 100U) / 10U));
+        snprintf(line2, sizeof(line2), "I  %2lu.%03luA",
+                 (unsigned long)(p->irms_x1000 / 1000U),
+                 (unsigned long)(p->irms_x1000 % 1000U));
+        show_text_line(10U, param_y, line1, YELLOW);
+        show_text_line(120U, param_y, line2, CYAN);
+        param_y = (uint16_t)(param_y + 20U);
+
+        {
+            int32_t pw = p->active_power_x10;
+            uint32_t p_abs;
+            char p_int[8];
+            if (pw < 0) {
+                p_abs = (uint32_t)(-pw);
+                snprintf(p_int, sizeof(p_int), "-%lu", (unsigned long)(p_abs / 10U));
+            } else {
+                p_abs = (uint32_t)pw;
+                snprintf(p_int, sizeof(p_int), "%lu", (unsigned long)(p_abs / 10U));
+            }
+            snprintf(line1, sizeof(line1), "P %4s.%01luW",
+                     p_int,
+                     (unsigned long)(p_abs % 10U));
+        }
+        snprintf(line2, sizeof(line2), "Lk %2lu.%01lumA",
+                 (unsigned long)(p->ilk_rms_x1000 / 1000U),
+                 (unsigned long)((p->ilk_rms_x1000 % 1000U) / 100U));
+        show_text_line(10U, param_y, line1, WHITE);
+        show_text_line(120U, param_y, line2, RED);
+        param_y = (uint16_t)(param_y + 20U);
+
+        snprintf(line1, sizeof(line1), "PF %3lu.%02lu",
+                 (unsigned long)(p->power_factor_x1000 / 1000U),
+                 (unsigned long)((p->power_factor_x1000 % 1000U) / 10U));
+        snprintf(line2, sizeof(line2), "CAL %s",
+                 p->zero_calibrated != 0U ? "Y" : "N");
+        show_text_line(10U, param_y, line1, WHITE);
+        show_text_line(120U, param_y, line2, GRAY);
+    }
+
     show_menu_item(ui->cursor == 0U, UI_BACK_Y, "Enter Test Menu");
 }
 
@@ -265,15 +268,15 @@ static void render_test_menu(const app_ui_state_t *ui)
     uint16_t y = UI_CONTENT_Y;
 
     show_title("Test Menu");
-    show_menu_item(ui->cursor == 0U, y, "Square Wave");
+    show_menu_item(ui->cursor == 0U, y, "Square Wave Output");
     y = (uint16_t)(y + UI_ITEM_STEP);
-    show_menu_item(ui->cursor == 1U, y, "Freq Measure");
+    show_menu_item(ui->cursor == 1U, y, "DA Wave Output");
     y = (uint16_t)(y + UI_ITEM_STEP);
-    show_menu_item(ui->cursor == 2U, y, "DA Wave Output");
+    show_menu_item(ui->cursor == 2U, y, "Freq Measure");
     y = (uint16_t)(y + UI_ITEM_STEP);
     show_menu_item(ui->cursor == 3U, y, "System Info");
-    y = (uint16_t)(y + UI_ITEM_STEP);
-    show_menu_item(ui->cursor == 4U, y, "Back to Dashboard");
+
+    show_menu_item(ui->cursor == 4U, UI_BACK_Y, "Back to Dashboard");
 }
 
 /** 渲染 PWM 频率设置页。编辑中显示草稿值，确认后才写入 TIM1。 */
@@ -282,7 +285,7 @@ static void render_pwm_page(const app_monitor_state_t *state, const app_ui_state
     char line[64];
     uint16_t freq_color;
 
-    show_title("Square Wave");
+    show_title("Square Wave Output");
 
     /* ponytail: 编辑态用 GREEN 区分，正常用高亮条自带颜色 */
     if (ui->editing != 0U && ui->cursor == 0U) {
@@ -304,7 +307,7 @@ static void render_pwm_page(const app_monitor_state_t *state, const app_ui_state
         show_text_line_bg(UI_LEFT, UI_CONTENT_Y, line, freq_color, bg);
     }
 
-    show_menu_item(ui->cursor == 1U, (uint16_t)(UI_CONTENT_Y + UI_ITEM_STEP), "Back Home");
+    show_menu_item(ui->cursor == 1U, UI_BACK_Y, "Back Home");
 }
 
 /** 渲染频率测量和串口上报设置页。 */
@@ -314,23 +317,26 @@ static void render_measure_page(const app_monitor_state_t *state, const app_ui_s
 
     show_title("Freq Measure");
 
-    snprintf(line, sizeof(line), "Serial Report: %s",
-             ui->serial_auto_report_enabled != 0U ? "ON" : "OFF");
-    {
-        uint16_t bg = ui->cursor == 0U ? UI_HIGHLIGHT_BG : BLACK;
-        uint16_t fg = ui->cursor == 0U ? YELLOW : WHITE;
-        uint16_t bar_top = (uint16_t)(UI_CONTENT_Y - UI_BAR_PAD);
-        uint16_t bar_bot = (uint16_t)(UI_CONTENT_Y + UI_FONT_H + UI_BAR_PAD - 1U);
-        LCD_Fill(0U, bar_top, lcddev.width - 1U, bar_bot, bg);
-        show_text_line_bg(UI_LEFT, UI_CONTENT_Y, line, fg, bg);
-    }
-
-    show_menu_item(ui->cursor == 1U, (uint16_t)(UI_CONTENT_Y + UI_ITEM_STEP), "Back Home");
-
+    /* PA1 测频结果垂直居中显示 */
     snprintf(line, sizeof(line), "PA1 Measure: %lu.%02lu Hz",
              (unsigned long)(state->mains_frequency.frequency_x100 / 100U),
              (unsigned long)(state->mains_frequency.frequency_x100 % 100U));
-    show_text_line(10U, (uint16_t)(UI_CONTENT_Y + UI_ITEM_STEP * 3U), line, GREEN);
+    show_text_line(10U, (uint16_t)((lcddev.height / 2U) - (UI_FONT_H / 2U)), line, GREEN);
+
+    /* Serial Report 和 Back Home 放在屏幕底部 */
+    snprintf(line, sizeof(line), "Serial Report: %s",
+             ui->serial_auto_report_enabled != 0U ? "ON" : "OFF");
+    {
+        uint16_t report_y = (uint16_t)(UI_BACK_Y - UI_ITEM_STEP);
+        uint16_t bg = ui->cursor == 0U ? UI_HIGHLIGHT_BG : BLACK;
+        uint16_t fg = ui->cursor == 0U ? YELLOW : WHITE;
+        uint16_t bar_top = (uint16_t)(report_y - UI_BAR_PAD);
+        uint16_t bar_bot = (uint16_t)(report_y + UI_FONT_H + UI_BAR_PAD - 1U);
+        LCD_Fill(0U, bar_top, lcddev.width - 1U, bar_bot, bg);
+        show_text_line_bg(UI_LEFT, report_y, line, fg, bg);
+    }
+
+    show_menu_item(ui->cursor == 1U, UI_BACK_Y, "Back Home");
 }
 
 /** 渲染 DAC 波形监看页：配置参数 + CH1/CH2 波形曲线。 */
@@ -338,13 +344,14 @@ static void render_da_page(const app_monitor_state_t *state, const app_ui_state_
 {
     char line[64];
     uint16_t graph_left = DISPLAY_DA_GRAPH_X;
-    uint16_t graph_top = DISPLAY_DA_GRAPH_Y;
+    uint16_t graph_top = UI_CONTENT_Y;
     uint16_t graph_width = (uint16_t)(lcddev.width - DISPLAY_DA_GRAPH_X - 8U);
     uint16_t graph_height = DISPLAY_DA_GRAPH_HEIGHT;
     uint16_t graph_right = (uint16_t)(graph_left + graph_width - 1U);
     uint16_t graph_bottom = (uint16_t)(graph_top + graph_height - 1U);
     uint16_t graph_mid = (uint16_t)(graph_top + (graph_height / 2U));
     uint16_t count = state->dac_output.waveform_sample_count;
+    uint16_t param_y = 176U;
 
     if (count > APP_DAC_TABLE_SIZE) {
         count = APP_DAC_TABLE_SIZE;
@@ -352,19 +359,7 @@ static void render_da_page(const app_monitor_state_t *state, const app_ui_state_
 
     show_title("DA Wave Output");
 
-    snprintf(line, sizeof(line), "Mode:%s Freq:%luHz",
-             state->dac_output.config.mode == APP_DAC_MODE_DUAL ? "DUAL" : "SINGLE",
-             (unsigned long)state->dac_output.config.frequency_hz);
-    show_text_line(10U, UI_CONTENT_Y, line, WHITE);
-
-    snprintf(line, sizeof(line), "Amp:%u Phase:%u",
-             state->dac_output.config.amplitude,
-             state->dac_output.config.phase_degrees);
-    show_text_line(10U, (uint16_t)(UI_CONTENT_Y + 22U), line, WHITE);
-
-    show_text_line(10U, (uint16_t)(UI_CONTENT_Y + 44U), "CH1 Green  CH2 Yellow", GRAY);
-    show_menu_item(ui->cursor == 0U, UI_BACK_Y, "Back Home");
-
+    /* 绘制 DAC 波形 (上半区) */
     LCD_Fill((uint16_t)(graph_left - DISPLAY_DA_AXIS_TICK),
              graph_top,
              graph_right,
@@ -386,6 +381,39 @@ static void render_da_page(const app_monitor_state_t *state, const app_ui_state_
                    (uint16_t)(graph_width - 2U),
                    graph_height,
                    YELLOW);
+
+    /* 显示参数 (下半区) */
+    {
+        uint16_t label_y = param_y; /* 176U, 直接位于波形图 (163) 下方 */
+
+        /* 先用黑色清除该行背景 */
+        LCD_Fill(0U, label_y, lcddev.width - 1U, (uint16_t)(label_y + UI_FONT_H - 1U), BLACK);
+
+        /* 绿色绘制 "CH1 Green" */
+        POINT_COLOR = GREEN;
+        BACK_COLOR = BLACK;
+        {
+            uint16_t total_w = 72U + 24U + 80U; /* "CH1 Green" (72px) + 3 spaces (24px) + "CH2 Yellow" (80px) */
+            uint16_t start_x = (uint16_t)((lcddev.width - total_w) / 2U);
+            LCD_ShowString(start_x, label_y, 72U, UI_FONT_H, UI_FONT_H, (u8 *)"CH1 Green");
+            /* 黄色绘制 "CH2 Yellow" */
+            POINT_COLOR = YELLOW;
+            LCD_ShowString((uint16_t)(start_x + 72U + 24U), label_y, 80U, UI_FONT_H, UI_FONT_H, (u8 *)"CH2 Yellow");
+        }
+
+        /* 渲染 Mode 和 Amp，放在颜色标识下方 */
+        snprintf(line, sizeof(line), "Mode:%s Freq:%luHz",
+                 state->dac_output.config.mode == APP_DAC_MODE_DUAL ? "DUAL" : "SINGLE",
+                 (unsigned long)state->dac_output.config.frequency_hz);
+        show_text_line(10U, (uint16_t)(param_y + 22U), line, WHITE);
+
+        snprintf(line, sizeof(line), "Amp:%u Phase:%u",
+                 state->dac_output.config.amplitude,
+                 state->dac_output.config.phase_degrees);
+        show_text_line(10U, (uint16_t)(param_y + 44U), line, WHITE);
+    }
+
+    show_menu_item(ui->cursor == 0U, UI_BACK_Y, "Back Home");
 }
 
 /** 渲染系统信息页。显示 USART 信息和固件版本号。 */

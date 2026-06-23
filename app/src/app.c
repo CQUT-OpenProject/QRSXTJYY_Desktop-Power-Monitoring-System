@@ -50,7 +50,7 @@ void app_run(void)
         if (adc_updated != 0U && ui_state->page == APP_UI_PAGE_DASHBOARD) {
             static uint8_t adc_divider = 0U;
             adc_divider++;
-            if (adc_divider >= 2U) { // Rate limit dashboard updates to 25Hz (50Hz / 2)
+            if (adc_divider >= 17U) { // Rate limit dashboard updates to ~3Hz (50Hz / 17)
                 adc_divider = 0U;
                 display_changed = 1U;
             }

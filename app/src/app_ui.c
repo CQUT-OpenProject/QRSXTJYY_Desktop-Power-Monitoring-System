@@ -76,15 +76,15 @@ static void toggle_pwm_edit(void)
 
 
 
-/** Test Menu确认：0→PWM, 1→MEASURE, 2→DA, 3→INFO, 4→DASHBOARD。 */
+/** Test Menu确认：0→PWM, 1→DA, 2→MEASURE, 3→INFO, 4→DASHBOARD。 */
 static void handle_test_menu_confirm(void)
 {
     if (s_state.cursor == 0U) {
         s_state.page = APP_UI_PAGE_PWM;
     } else if (s_state.cursor == 1U) {
-        s_state.page = APP_UI_PAGE_MEASURE;
-    } else if (s_state.cursor == 2U) {
         s_state.page = APP_UI_PAGE_DA;
+    } else if (s_state.cursor == 2U) {
+        s_state.page = APP_UI_PAGE_MEASURE;
     } else if (s_state.cursor == 3U) {
         s_state.page = APP_UI_PAGE_INFO;
     } else {
