@@ -98,6 +98,9 @@ fn compute_rms_code(samples: &[u16], zero: u32) -> u32 {
 /// * `v_gain_x1000` 等 — 校准增益 × 1000，将 ADC RMS 码值换算为物理量。
 ///   增益含义：physical_value = rms_code × gain / 1000。
 /// * `v_zero` 等 — DC 偏移（0 表示从本批数据自动估算）。
+/// * `i_polarity` — 电流通道极性修正（+1 或 -1）。
+///   用于补偿 CT 互感器输出极性与电压通道反相的情况。
+///   仅影响有功功率符号，不影响 VRMS、IRMS 和视在功率。
 /// * `result` — 输出电参数结构体。
 ///
 /// # 算法
@@ -105,9 +108,9 @@ fn compute_rms_code(samples: &[u16], zero: u32) -> u32 {
 /// 1. 对每通道求 DC 偏移（手动指定或自动估算均值）。
 /// 2. 去直流后计算 RMS 码值。
 /// 3. RMS 码值 × 增益 → 物理量 RMS。
-/// 4. 有功功率 = mean( (v[n]-Vdc) × (i[n]-Idc) )，再乘增益。
+/// 4. 有功功率 = mean( (v[n]-Vdc) × (i[n]-Idc) × i_polarity )，再乘增益。
 /// 5. 视在功率 = Vrms × Irms。
-/// 6. 功率因数 = P / S，钳位到 [0, 1] 区间。
+/// 6. 功率因数 = |P| / S，钳位到 [0, 1] 区间。
 #[no_mangle]
 pub extern "C" fn pm_calc_electrical(
     v_samples: *const u16,
@@ -120,6 +123,7 @@ pub extern "C" fn pm_calc_electrical(
     v_zero: u16,
     i_zero: u16,
     ilk_zero: u16,
+    i_polarity: i8,
     result: *mut PmElectricalResult,
 ) {
     // 入口参数校验
@@ -157,15 +161,17 @@ pub extern "C" fn pm_calc_electrical(
     r.irms_x1000 = irms_code.saturating_mul(i_gain_x1000) / 1000;
     r.ilk_rms_x1000 = ilkrms_code.saturating_mul(ilk_gain_x1000) / 1000;
 
-    // 4. 有功功率：mean(v_centered × i_centered)，再乘组合增益
-    //    先算 Σ(v_ac[n] × i_ac[n]) / N（原始码值域），再乘增益转物理量。
+    // 4. 有功功率：mean(v_centered × i_centered × i_polarity)，再乘组合增益
+    //    先算 Σ(v_ac[n] × i_ac[n] × i_polarity) / N（原始码值域），再乘增益转物理量。
     //    保留符号：正=消耗功率，负=回馈功率。
+    //    i_polarity 补偿 CT 互感器输出极性与电压通道反相的问题。
+    let pol = i_polarity as i64;
     let active_sum: i64 = v_slice
         .iter()
         .zip(i_slice.iter())
         .map(|(&v, &i)| {
             let v_c = v as i32 - zv as i32;
-            let i_c = i as i32 - zi as i32;
+            let i_c = (i as i32 - zi as i32) * pol as i32;
             (v_c as i64) * (i_c as i64)
         })
         .sum();

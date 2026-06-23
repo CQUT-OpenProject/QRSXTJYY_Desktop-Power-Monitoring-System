@@ -56,6 +56,7 @@ extern "C" {
  * * `v_gain_x1000` 等 — 校准增益 × 1000，将 ADC RMS 码值换算为物理量。
  *   增益含义：physical_value = rms_code × gain / 1000。
  * * `v_zero` 等 — DC 偏移（0 表示从本批数据自动估算）。
+ * * `i_polarity` — 电流通道极性修正（+1 或 -1），补偿 CT 互感器输出极性。
  * * `result` — 输出电参数结构体。
  *
  * # 算法
@@ -63,9 +64,9 @@ extern "C" {
  * 1. 对每通道求 DC 偏移（手动指定或自动估算均值）。
  * 2. 去直流后计算 RMS 码值。
  * 3. RMS 码值 × 增益 → 物理量 RMS。
- * 4. 有功功率 = mean( (v[n]-Vdc) × (i[n]-Idc) )，再乘增益。
+ * 4. 有功功率 = mean( (v[n]-Vdc) × (i[n]-Idc) × i_polarity )，再乘增益。
  * 5. 视在功率 = Vrms × Irms。
- * 6. 功率因数 = P / S，钳位到 [0, 1] 区间。
+ * 6. 功率因数 = |P| / S，钳位到 [0, 1] 区间。
  */
 void pm_calc_electrical(const uint16_t *v_samples,
                         const uint16_t *i_samples,
@@ -77,6 +78,7 @@ void pm_calc_electrical(const uint16_t *v_samples,
                         uint16_t v_zero,
                         uint16_t i_zero,
                         uint16_t ilk_zero,
+                        int8_t i_polarity,
                         struct PmElectricalResult *result);
 
 #ifdef __cplusplus

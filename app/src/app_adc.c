@@ -338,6 +338,7 @@ uint8_t app_adc_task(void)
         cal_v,
         cal_i,
         cal_ilk,
+        (int8_t)APP_ADC_I_POLARITY,
         (struct PmElectricalResult *)&s_electrical_params);
 
     s_electrical_params.zero_calibrated = cal_done;

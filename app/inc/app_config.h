@@ -101,7 +101,7 @@
  * Vrms (0.01 V) = rms_code × GAIN_V / 1000
  * 默认 1000 表示 1:1，实物需按电压互感器/分压比设定。
  */
-#define APP_ADC_CALIB_V_GAIN_X1000     1000U
+#define APP_ADC_CALIB_V_GAIN_X1000     17600U
 
 /**
  * 电流通道校准增益 × 1000。
@@ -114,6 +114,14 @@
  * Ilk_rms (0.001 A) = rms_code × GAIN_ILK / 1000
  */
 #define APP_ADC_CALIB_ILK_GAIN_X1000   1000U
+
+/**
+ * 电流通道极性修正系数（+1 或 -1）。
+ * miniIO 副板 CT1 电流互感器输出极性与电压通道相反，
+ * 软件默认取 -1 使普通负载有功功率显示为正值。
+ * 仅影响有功功率符号，不影响 VRMS、IRMS 和视在功率。
+ */
+#define APP_ADC_I_POLARITY             (-1)
 
 /* ================================================================== */
 /* System Info                                                        */
