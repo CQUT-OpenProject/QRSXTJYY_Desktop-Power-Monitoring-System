@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 <body>
 <script src="js/init.js"></script>
@@ -26,7 +27,7 @@
     <canvas class="ascii-bg" aria-hidden="true"></canvas>
     <div class="chrome-min">
       <div class="l">桌面用电监控系统 · 综合课程设计 I</div>
-      <div class="r">2026.06 · 01 / 32</div>
+      <div class="r">2026.06 · 01 / 28</div>
     </div>
     <div style="flex:1;display:grid;grid-template-rows:auto 1fr auto;gap:2.6vh">
       <h1 data-anim="title" style="align-self:center;font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(6.2vw,11vh);line-height:.98;letter-spacing:-.025em;color:#fff">桌面用电监控系统<br>设计与实现汇报</h1>
@@ -43,21 +44,21 @@
   <div class="canvas-card">
     <div class="chrome-min">
       <div class="l">汇报目录</div>
-      <div class="r">02 / 32</div>
+      <div class="r">02 / 28</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:2vh">
       <span class="t-cat accent">目录大纲</span>
       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">主要内容</h2>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr);gap:1.4vh 1.4vw;flex:1;margin-top:2vh" data-anim="up">
-      <div class="sub-card"><span class="nb-corner">01</span><h4 class="ttl">系统总览</h4><p class="desc">功能需求 · 双链路架构 · 引脚分配</p></div>
-      <div class="sub-card"><span class="nb-corner">02</span><h4 class="ttl">PWM 方波与测频</h4><p class="desc">TIM1 发生 · TIM2 输入捕获</p></div>
-      <div class="sub-card accent"><span class="nb-corner">03</span><h4 class="ttl">DAC 正弦波</h4><p class="desc">128 点查找表 · DMA 双通道</p></div>
-      <div class="sub-card"><span class="nb-corner">04</span><h4 class="ttl">ADC 采样</h4><p class="desc">三通道 DMA · 三重缓冲</p></div>
-      <div class="sub-card"><span class="nb-corner">05</span><h4 class="ttl">波形绘制</h4><p class="desc">LCD 状态机 · 界面截图</p></div>
-      <div class="sub-card accent"><span class="nb-corner">06</span><h4 class="ttl">电参量计算</h4><p class="desc">整型 RMS · 模块化算法设计</p></div>
-      <div class="sub-card"><span class="nb-corner">07</span><h4 class="ttl">串口协议与联调</h4><p class="desc">帧协议 · 命令集 · 联机验证</p></div>
-      <div class="sub-card ink"><span class="nb-corner">08</span><h4 class="ttl">调试问题与总结</h4><p class="desc">关键问题排查 · 总结与展望</p></div>
+       <div class="sub-card"><span class="nb-corner">01</span><h4 class="ttl">项目背景与课程要求</h4><p class="desc">核心任务 · 课程要求 · 完成情况对照</p></div>
+       <div class="sub-card"><span class="nb-corner">02</span><h4 class="ttl">系统分析与总体设计</h4><p class="desc">性能指标 · 双链路架构 · 约束条件</p></div>
+       <div class="sub-card accent"><span class="nb-corner">03</span><h4 class="ttl">硬件平台与软件架构</h4><p class="desc">引脚分配 · 分层模块化 · 主循环调度</p></div>
+       <div class="sub-card"><span class="nb-corner">04</span><h4 class="ttl">通信协议设计与验证</h4><p class="desc">帧结构设计 · CRC 校验 · 上位机验证</p></div>
+       <div class="sub-card"><span class="nb-corner">05</span><h4 class="ttl">频率生成与测量</h4><p class="desc">TIM1 PWM · TIM2 输入捕获 · 五频点精度验证</p></div>
+       <div class="sub-card accent"><span class="nb-corner">06</span><h4 class="ttl">DAC 测试源与 ADC 采样</h4><p class="desc">安全环回验证 · 三通道 DMA · 波形可视化</p></div>
+       <div class="sub-card"><span class="nb-corner">07</span><h4 class="ttl">电参量计算与显示</h4><p class="desc">整型 RMS · 模块化算法 · 幅值/相位验证</p></div>
+       <div class="sub-card ink"><span class="nb-corner">08</span><h4 class="ttl">系统联调、问题排查与总结</h4><p class="desc">逐项验证 · 关键问题工程修正 · 展望</p></div>
     </div>
   </div>
 </section>
@@ -66,30 +67,85 @@
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S04" data-animate="six-cells">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">系统功能分析</div><div class="r">03 / 32</div></div>
+    <div class="chrome-min"><div class="l">系统功能分析</div><div class="r">03 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:2vh">
-      <span class="t-cat accent">01 / 系统总览</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">七大功能模块</h2>
+<span class="t-cat accent">01 / 项目背景与课程要求</span>
+       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">项目背景、课程要求与完成情况</h2>
+       <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.4vh;max-width:80ch">桌面用电监控系统的核心任务，是在安全隔离条件下获取电压、电流、漏电电流和频率信号，并通过本地 LCD 与串口协议实现监测、显示和远程调试。</p>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1.4vh 1.4vw;flex:1;margin-top:2vh" data-anim="up">
-      <div class="sub-card"><span class="nb-corner">01</span><h4 class="ttl">频率信号发生与测量</h4><p class="desc">PA8/TIM1 输出 1–100kHz PWM；PA1/TIM2 输入捕获，0.01Hz 分辨率</p></div>
-      <div class="sub-card"><span class="nb-corner">02</span><h4 class="ttl">正弦波测试信号</h4><p class="desc">PA4/PA5 双通道 DAC，128 点查找表 + DMA 循环，频率/幅度/相位独立可调</p></div>
-      <div class="sub-card"><span class="nb-corner">03</span><h4 class="ttl">交流信号采集</h4><p class="desc">miniIO 互感器隔离 + 1.65V 偏置；PC0/PC3/PC2 三通道 ADC 6400Hz 准同步顺序扫描</p></div>
-      <div class="sub-card"><span class="nb-corner">04</span><h4 class="ttl">LCD 界面与交互</h4><p class="desc">六页面状态机；DAC 预览 + ADC 实时波形；按键与多级菜单交互</p></div>
-      <div class="sub-card accent"><span class="nb-corner">05</span><h4 class="ttl">电参量整型计算</h4><p class="desc">VRMS/IRMS/P/S/PF 全整数运算，高效高精度定点数算法，零浮点开销</p></div>
-      <div class="sub-card"><span class="nb-corner">06</span><h4 class="ttl">通讯协议总体设计</h4><p class="desc">A5 5A 帧头 + CRC-16/Modbus；支持 HELP/STATUS/PWM/DAC 等文本命令</p></div>
-      <div class="sub-card accent"><span class="nb-corner">07</span><h4 class="ttl">继电器与安全控制</h4><p class="desc">继电器上电默认安全断开，进入 Dashboard 仪表盘页后吸合，进入 Test 菜单及子页面时释放；漏电通道作为采样显示</p></div>
+       <div class="sub-card"><span class="nb-corner">01</span><h4 class="ttl">频率信号发生与测量</h4><p class="desc">要求：PWM 测频 → 实现：TIM1 PWM + TIM2 捕获 → 证据：第 09–12 页</p></div>
+       <div class="sub-card"><span class="nb-corner">02</span><h4 class="ttl">正弦波测试信号</h4><p class="desc">要求：DAC 正弦波 → 实现：DAC 双通道 DMA → 证据：第 13–15 页</p></div>
+       <div class="sub-card"><span class="nb-corner">03</span><h4 class="ttl">交流信号采集</h4><p class="desc">要求：交流采样 → 实现：TIM3+ADC+DMA 准同步 → 证据：第 16–17 页</p></div>
+       <div class="sub-card"><span class="nb-corner">04</span><h4 class="ttl">波形曲线绘制</h4><p class="desc">要求：曲线绘制 → 实现：LCD 六页面状态机 → 证据：第 18–19 页</p></div>
+       <div class="sub-card accent"><span class="nb-corner">05</span><h4 class="ttl">电参量整型计算</h4><p class="desc">要求：电参量算法 → 实现：VRMS/IRMS/P/S/PF 整型运算 → 证据：第 20–22 页</p></div>
+       <div class="sub-card"><span class="nb-corner">06</span><h4 class="ttl">通信协议</h4><p class="desc">要求：串口协议 → 实现：A5 5A 帧 + CRC16 + ASCII 命令 → 证据：第 08、23 页</p></div>
+       <div class="sub-card accent"><span class="nb-corner">07</span><h4 class="ttl">系统联调</h4><p class="desc">要求：系统联调 → 实现：miniIO + DAC 环回 + 继电器控制 → 证据：第 24–26 页</p></div>
     </div>
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 04 · 系统总体架构 -->
+<!-- Slide 04 · 系统性能指标与约束条件（新增） -->
+<!-- ============================================================ -->
+<section class="slide light" data-layout="S19" data-animate="four-cards">
+  <div class="canvas-card">
+    <div class="chrome-min"><div class="l">系统性能指标</div><div class="r">04 / 28</div></div>
+    <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:3vh">
+      <span class="t-cat accent">02 / 系统分析与总体设计 · 性能指标与约束</span>
+      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">系统性能指标与约束条件</h2>
+    </div>
+    <div class="grid-12" data-anim="up" style="flex:1">
+      <div class="span-3 card-fill" style="padding:1.6vh 1.2vw;min-height:18vh;display:flex;flex-direction:column;justify-content:space-between">
+        <span class="t-meta">— PWM 方波</span>
+        <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(14px,1.1vw);margin-top:.6vh">1–100 kHz · 50% 占空比</h3>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:auto">TIM1_CH1 PA8 输出，PSC/ARR 16 位分频</p>
+      </div>
+      <div class="span-3 card-fill" style="padding:1.6vh 1.2vw;min-height:18vh;display:flex;flex-direction:column;justify-content:space-between">
+        <span class="t-meta">— DAC 正弦波</span>
+        <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(14px,1.1vw);margin-top:.6vh">1–1000 Hz · Amp 0–2047 · 相位 0–359°</h3>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:auto">双通道独立设置，128 点 DMA 循环，TIM6/TIM7 触发</p>
+      </div>
+      <div class="span-3 card-fill" style="padding:1.6vh 1.2vw;min-height:18vh;display:flex;flex-direction:column;justify-content:space-between">
+        <span class="t-meta">— ADC 采样</span>
+        <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(14px,1.1vw);margin-top:.6vh">三通道 · 6400 Hz · 128 点/周期</h3>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:auto">TIM3 TRGO 触发 ADC1 顺序扫描，DMA1_CH1 循环</p>
+      </div>
+      <div class="span-3 card-fill" style="padding:1.6vh 1.2vw;min-height:18vh;display:flex;flex-direction:column;justify-content:space-between">
+        <span class="t-meta">— LCD 显示</span>
+        <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(14px,1.1vw);margin-top:.6vh">Dashboard ~3 Hz · 事件驱动刷新</h3>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:auto">第 17 帧 ADC 分频触发；换页清除残留</p>
+      </div>
+      <div class="span-3 card-fill" style="padding:1.6vh 1.2vw;min-height:18vh;display:flex;flex-direction:column;justify-content:space-between">
+        <span class="t-meta">— 串口通信</span>
+        <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(14px,1.1vw);margin-top:.6vh">115200 bps · REPORT 周期 ~1 s</h3>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:auto">A5 5A 帧头 + CRC-16/Modbus；帧超时 300 ms 重置</p>
+      </div>
+      <div class="span-3 card-fill" style="padding:1.6vh 1.2vw;min-height:18vh;display:flex;flex-direction:column;justify-content:space-between">
+        <span class="t-meta">— 计算约束</span>
+        <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(14px,1.1vw);margin-top:.6vh">Cortex-M3 无 FPU · 整型/定点算法</h3>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:auto">u64 平方累加防溢出 (12bit×128pt &lt; u64 上限)</p>
+      </div>
+      <div class="span-3 card-fill" style="padding:1.6vh 1.2vw;min-height:18vh;display:flex;flex-direction:column;justify-content:space-between">
+        <span class="t-meta">— 电气约束</span>
+        <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(14px,1.1vw);margin-top:.6vh">ADC 0–3.3 V · 1.65 V 偏置</h3>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:auto">miniIO 互感器隔离调理；软件去直流扣除</p>
+      </div>
+      <div class="span-3 card-fill" style="padding:1.6vh 1.2vw;min-height:18vh;display:flex;flex-direction:column;justify-content:space-between">
+        <span class="t-meta">— 存储约束</span>
+        <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(14px,1.1vw);margin-top:.6vh">静态缓冲 · ~4 KB RAM · 无堆空间</h3>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:auto">所有缓冲区编译期声明，禁用动态内存</p>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ============================================================ -->
+<!-- Slide 05 · 系统总体架构 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S05" data-animate="sub-stack">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">系统设计</div><div class="r">04 / 32</div></div>
+    <div class="chrome-min"><div class="l">系统设计</div><div class="r">05 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh">
-      <span class="t-cat accent">01 / 系统总体架构</span>
+      <span class="t-cat accent">02 / 系统分析与总体设计</span>
       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">双链路架构设计</h2>
     </div>
     <div class="stack-row" style="margin-top:4vh;gap:2vw">
@@ -136,23 +192,76 @@
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 05 · 硬件平台与引脚分配 -->
+<!-- Slide 06 · 硬件平台与引脚分配 -->
 <!-- ============================================================ -->
 <section class="slide split" data-layout="S03" data-animate="split-statement">
   <div class="canvas-card">
     <div class="split-half">
       <div class="half" style="padding:5.6vh 3.2vw 4.4vh;display:flex;flex-direction:column;justify-content:center;align-items:center">
-        <div class="chrome-min"><div class="l">硬件平台</div><div class="r">05 / 32</div></div>
-        <div class="img-frame lg" style="margin-top:2vh">
-          <img src="figures/debug_online_actual.jpg" alt="硬件实物：miniSTM32 与 miniIO 接线实物图" style="max-height:68vh">
-          <span class="img-cap">硬件实物：MiniSTM32 主控板 + miniIO 副板 + LCD 显示器</span>
+        <div class="chrome-min"><div class="l">硬件平台</div><div class="r">06 / 28</div></div>
+        <div style="margin-top:2vh;max-height:68vh;display:flex;justify-content:center">
+          <svg viewBox="0 0 520 480" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:42vw;height:auto;font-family:Inter,system-ui,sans-serif">
+            <defs>
+              <marker id="ad" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5Z" fill="#64748b"/></marker>
+              <marker id="au" markerWidth="7" markerHeight="5" refX="0" refY="2.5" orient="auto"><path d="M7,0 L0,2.5 L7,5Z" fill="#64748b"/></marker>
+            </defs>
+
+            <!-- miniIO 副板 -->
+            <rect x="20" y="10" width="480" height="180" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+            <text x="260" y="32" text-anchor="middle" font-size="13" font-weight="700" fill="#78350f">miniIO 副板</text>
+            <!-- miniIO signal pins -->
+            <rect x="108" y="48"  width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="134" y="66" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">fr</text>
+            <rect x="188" y="48"  width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="214" y="66" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">VL</text>
+            <rect x="268" y="48"  width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="294" y="66" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">iLK</text>
+            <rect x="348" y="48"  width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="374" y="66" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">iL</text>
+            <!-- miniIO power/control pins -->
+            <rect x="48"  y="128" width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="74"  y="146" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">5V</text>
+            <rect x="234" y="128" width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="260" y="146" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">GND</text>
+            <rect x="428" y="128" width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="454" y="146" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">relay</text>
+
+            <!-- Signal labels (center area) -->
+            <text x="134" y="232" text-anchor="middle" font-size="9.5" fill="#64748b">频率信号</text>
+            <text x="214" y="232" text-anchor="middle" font-size="9.5" fill="#64748b">交流电压</text>
+            <text x="294" y="232" text-anchor="middle" font-size="9.5" fill="#64748b">漏电电流</text>
+            <text x="374" y="232" text-anchor="middle" font-size="9.5" fill="#64748b">负载电流</text>
+            <!-- Power labels (far edges) -->
+            <text x="30"  y="278" text-anchor="middle" font-size="9.5" fill="#64748b" writing-mode="tb">供电</text>
+            <text x="260" y="278" text-anchor="middle" font-size="9.5" fill="#64748b">共地</text>
+            <text x="496" y="278" text-anchor="middle" font-size="9.5" fill="#64748b" writing-mode="tb">继电器</text>
+
+            <!-- MiniSTM32 开发板 -->
+            <rect x="20" y="310" width="480" height="160" rx="10" fill="#e8f4f8" stroke="#0ea5e9" stroke-width="2"/>
+            <text x="260" y="332" text-anchor="middle" font-size="13" font-weight="700" fill="#0c4a6e">MiniSTM32 开发板</text>
+            <!-- STM32 signal pins -->
+            <rect x="108" y="348" width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="134" y="366" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">PA1</text>
+            <rect x="188" y="348" width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="214" y="366" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">PC0</text>
+            <rect x="268" y="348" width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="294" y="366" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">PC2</text>
+            <rect x="348" y="348" width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="374" y="366" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">PC3</text>
+            <!-- STM32 power/control pins -->
+            <rect x="48"  y="428" width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="74"  y="446" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">5V</text>
+            <rect x="234" y="428" width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="260" y="446" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">GND</text>
+            <rect x="428" y="428" width="52" height="28" rx="4" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/><text x="454" y="446" text-anchor="middle" font-size="11" font-weight="500" fill="#1e293b">PC12</text>
+
+            <!-- Signal connections (center, straight vertical) -->
+            <line x1="134" y1="76"  x2="134" y2="348" stroke="#64748b" stroke-width="1.4" marker-end="url(#ad)"/>
+            <line x1="214" y1="76"  x2="214" y2="348" stroke="#64748b" stroke-width="1.4" marker-end="url(#ad)"/>
+            <line x1="294" y1="76"  x2="294" y2="348" stroke="#64748b" stroke-width="1.4" marker-end="url(#ad)"/>
+            <line x1="374" y1="76"  x2="374" y2="348" stroke="#64748b" stroke-width="1.4" marker-end="url(#ad)"/>
+            <!-- 5V (far left edge, straight vertical) -->
+            <line x1="74"  y1="428" x2="74"  y2="156" stroke="#64748b" stroke-width="1.4" marker-end="url(#au)"/>
+            <!-- GND (center, dashed bidirectional) -->
+            <line x1="260" y1="428" x2="260" y2="156" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5,3" marker-start="url(#ad)" marker-end="url(#au)"/>
+            <!-- relay (far right edge, straight vertical) -->
+            <line x1="454" y1="428" x2="454" y2="156" stroke="#64748b" stroke-width="1.4" marker-end="url(#au)"/>
+          </svg>
         </div>
+        <span class="img-cap">miniSTM32 与 miniIO 联机接线框图</span>
       </div>
       <div class="half b-grey" style="padding:5.6vh 2.8vw 4.4vh;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden">
-        <div class="chrome-min"><div class="l">引脚分配</div><div class="r">05 / 32</div></div>
+        <div class="chrome-min"><div class="l">引脚分配</div><div class="r">06 / 28</div></div>
         <div style="display:flex;flex-direction:column;gap:1.6vh">
-          <span class="t-cat accent">01 / 硬件设计</span>
-          <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.6vw,6vh);line-height:1.1;letter-spacing:-.02em">核心引脚与外设分配</h2>
+           <span class="t-cat accent">03 / 硬件平台与软件架构</span>
+           <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.6vw,6vh);line-height:1.1;letter-spacing:-.02em">核心引脚与外设分配</h2>
         </div>
         <div style="margin-top:2vh;flex:1;display:flex;flex-direction:column;justify-content:space-between">
           <table class="data-tbl" style="width:100%;font-size:max(12px,.75vw)">
@@ -171,16 +280,16 @@
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 06 · 软件架构 -->
+<!-- Slide 07 · 软件架构 -->
 <!-- ============================================================ -->
 <section class="slide split" data-layout="S03" data-animate="split-statement">
   <div class="canvas-card">
     <div class="split-half">
       <div class="half" style="padding:5.6vh 3.2vw 4.4vh;justify-content:space-between">
-        <div class="chrome-min"><div class="l">软件架构</div><div class="r">06 / 32</div></div>
+        <div class="chrome-min"><div class="l">软件架构</div><div class="r">07 / 28</div></div>
         <div style="display:flex;flex-direction:column;gap:1.6vh">
-          <span class="t-cat accent">01 / 软件分层</span>
-          <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.6vw,6vh);line-height:1.1;letter-spacing:-.02em">分层模块化架构</h2>
+           <span class="t-cat accent">03 / 硬件平台与软件架构</span>
+           <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.6vw,6vh);line-height:1.1;letter-spacing:-.02em">分层模块化架构</h2>
         </div>
         <div data-anim="rules" style="display:flex;flex-direction:column;gap:1.4vh;margin-top:2vh">
           <div style="border-top:2px solid var(--accent);padding-top:1vh">
@@ -224,16 +333,17 @@
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 07 · 通信协议设计 -->
+<!-- Slide 08 · 通信协议设计 -->
 <!-- ============================================================ -->
 <section class="slide split" data-layout="S03" data-animate="split-statement">
   <div class="canvas-card">
     <div class="split-half">
       <div class="half" style="padding:5.6vh 3.2vw 4.4vh;justify-content:space-between">
-        <div class="chrome-min"><div class="l">通信协议</div><div class="r">07 / 32</div></div>
-        <div style="display:flex;flex-direction:column;gap:1.2vh">
-          <span class="t-cat accent">01 / 通信协议总体设计</span>
+        <div class="chrome-min"><div class="l">通信协议</div><div class="r">08 / 28</div></div>
+        <div style="display:flex;flex-direction:column;gap:.8vh">
+          <span class="t-cat accent">04 / 通信协议设计与验证 · 设计</span>
           <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.4vw,6vh);line-height:1.1">二进制帧结构与校验设计</h2>
+          <span class="t-meta" style="opacity:.6">全局支撑模块 · 基于二进制帧的通信基础设施</span>
         </div>
         <div data-anim="rules" style="display:flex;flex-direction:column;gap:1.2vh;margin-top:1.6vh">
           <table class="data-tbl">
@@ -247,6 +357,15 @@
             <tr><td>CRC16</td><td>2B</td><td>CRC-16/Modbus（小端）</td></tr>
           </table>
           <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.8vh">CRC 覆盖 VERSION → PAYLOAD；CRC 错误静默丢弃</p>
+          <div style="border-top:1px solid var(--border-subtle);padding-top:.8vh;margin-top:.8vh">
+            <span class="t-meta" style="color:var(--accent)">为什么这样设计</span>
+            <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.4vh">
+              <strong>A5 5A 帧头</strong>：帧边界识别，降低串口噪声误解析<br>
+              <strong>LEN 字段</strong>：支持可变长 payload，便于扩展命令<br>
+              <strong>CRC-16/Modbus</strong>：误码检测，提高通信可靠性<br>
+              <strong>ASCII payload</strong>：降低调试成本，便于串口助手验证
+            </p>
+          </div>
         </div>
       </div>
       <div class="half b-grey" style="padding:5.6vh 2.6vw 4.4vh;justify-content:flex-start;overflow:hidden">
@@ -266,16 +385,16 @@ DAC SET CH1|CH2 FREQ|AMP|PHASE &lt;val&gt; → 通道独立设置</code></pre>
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 08 · PWM 方波发生 -->
+<!-- Slide 09 · PWM 方波发生 -->
 <!-- ============================================================ -->
 <section class="slide split" data-layout="S03" data-animate="split-statement">
   <div class="canvas-card">
     <div class="split-half">
       <div class="half" style="padding:5.6vh 3.2vw 4.4vh;display:flex;flex-direction:column;justify-content:flex-start;gap:1.4vh">
-        <div class="chrome-min"><div class="l">方波发生</div><div class="r">08 / 32</div></div>
+        <div class="chrome-min"><div class="l">方波发生</div><div class="r">09 / 28</div></div>
         <div style="display:flex;flex-direction:column;gap:1.6vh">
-          <span class="t-cat accent">02 / PWM 方波发生</span>
-          <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.6vw,6vh);line-height:1.1">TIM1 频率生成</h2>
+          <span class="t-cat accent">05 / 频率生成与测量</span>
+           <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.6vw,6vh);line-height:1.1">TIM1 频率生成</h2>
         </div>
         <div style="display:flex;flex-direction:column;gap:1vh;margin-top:1.2vh">
           <div style="border-top:2px solid var(--accent);padding-top:1vh">
@@ -319,30 +438,36 @@ $$
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 09 · PWM 发生界面 -->
+<!-- Slide 10 · PWM 与测频界面 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S04" data-animate="six-cells">
   <div class="canvas-card" style="justify-content:center;align-items:center">
-    <div class="chrome-min"><div class="l">方波发生</div><div class="r">09 / 32</div></div>
-    <div style="text-align:center;margin-bottom:4vh">
-      <span class="t-cat accent">02 / PWM 发生页面</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh)">方波输出 LCD 界面</h2>
+    <div class="chrome-min"><div class="l">PWM 与测频界面</div><div class="r">10 / 28</div></div>
+    <div style="text-align:center;margin-bottom:3vh">
+      <span class="t-cat accent">05 / 频率生成与测量</span>
+       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1">方波输出与频率测量 LCD 界面</h2>
     </div>
-    <div class="img-frame lg">
-      <img src="figures/lcd_square.png" alt="LCD PWM 方波页面" style="max-height:55vh">
-      <span class="img-cap" style="font-size:max(12px,.75vw);margin-top:1.2vh">LCD: Square Wave Output · PWM Freq: 50 Hz</span>
+    <div class="img-grid cols-2" style="max-width:90%;margin:0 auto">
+      <div class="img-frame lg">
+        <img src="figures/lcd_square.png" alt="LCD PWM 方波页面" style="max-height:38vh">
+        <span class="img-cap" style="font-size:max(10px,.65vw);margin-top:0.8vh;text-align:center">PWM 方波发生 · PA8 TIM1_CH1 输出</span>
+      </div>
+      <div class="img-frame lg">
+        <img src="figures/lcd_measure.png" alt="LCD Freq Measure 页面" style="max-height:38vh">
+        <span class="img-cap" style="font-size:max(10px,.65vw);margin-top:0.8vh;text-align:center">频率测量 · PA1 TIM2_CH2 输入捕获</span>
+      </div>
     </div>
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 10 · 输入捕获测频 -->
+<!-- Slide 11 · 输入捕获测频 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S02" data-animate="timeline-vertical">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">输入捕获测频</div><div class="r">10 / 32</div></div>
+    <div class="chrome-min"><div class="l">输入捕获测频</div><div class="r">11 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:3vh">
-      <span class="t-cat accent">03 / 输入捕获测频</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">高精度测频与 32 位时间戳扩展</h2>
+      <span class="t-cat accent">05 / 频率生成与测量</span>
+       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">高精度测频与 32 位时间戳扩展</h2>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:3vw;flex:1;align-items:start">
       <div>
@@ -384,35 +509,20 @@ $$
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 11 · TIM2 测频界面 -->
 <!-- ============================================================ -->
-<section class="slide light" data-layout="S04" data-animate="six-cells">
-  <div class="canvas-card" style="justify-content:center;align-items:center">
-    <div class="chrome-min"><div class="l">输入捕获测频</div><div class="r">11 / 32</div></div>
-    <div style="text-align:center;margin-bottom:4vh">
-      <span class="t-cat accent">03 / Freq Measure 页面</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh)">频率测量 LCD 界面</h2>
-    </div>
-    <div class="img-frame lg">
-      <img src="figures/lcd_measure.png" alt="LCD Freq Measure 页面" style="max-height:55vh">
-      <span class="img-cap" style="font-size:max(12px,.75vw);margin-top:1.2vh">LCD: Freq Measure · PA1 Measure + Serial Report</span>
-    </div>
-  </div>
-</section>
-<!-- ============================================================ -->
-<!-- Slide 12 · 测频调试验证 -->
+<!-- Slide 13 · 测频调试验证 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S21" data-animate="tech-spec">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">测频调试验证</div><div class="r">12 / 32</div></div>
+    <div class="chrome-min"><div class="l">测频调试验证</div><div class="r">12 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:3vh">
-      <span class="t-cat accent">03 / 测频调试结果</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">五频点精度验证 · PA8→PA1 环回</h2>
+      <span class="t-cat accent">05 / 频率生成与测量</span>
+       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">五频点精度验证 · PA8→PA1 环回</h2>
     </div>
     <div class="grid-12" data-anim="up" style="flex:1">
       <div class="span-12">
         <table class="data-tbl" style="font-size:max(14px,.82vw)">
-          <tr><th>目标频率</th><th>设置命令</th><th>PSC</th><th>ARR</th><th>示波器实测</th><th>TIM2 测量</th><th>误差</th></tr>
+          <tr><th>目标频率</th><th>设置命令</th><th>PSC</th><th>ARR</th><th>示波器实测</th><th>TIM2 测量</th><th>同源偏差</th></tr>
           <tr><td>50 Hz</td><td>PWM SET 50</td><td>21</td><td>65454</td><td>50.0011 Hz</td><td>50.00 Hz</td><td>0.00%</td></tr>
           <tr><td>100 Hz</td><td>PWM SET 100</td><td>10</td><td>65454</td><td>100.002 Hz</td><td>100.00 Hz</td><td>0.00%</td></tr>
           <tr><td>1 kHz</td><td>PWM SET 1000</td><td>1</td><td>35999</td><td>1000.03 Hz</td><td>1000.00 Hz</td><td>0.00%</td></tr>
@@ -422,7 +532,7 @@ $$
       </div>
       <div class="span-4" style="border-top:2px solid var(--accent);padding-top:1.6vh;margin-top:2vh">
         <span class="t-meta">外部基准</span>
-        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.6vh">SIGLENT 示波器频率计读数；同源时钟 TIM2 测值与目标完全一致</p>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.6vh">SIGLENT 示波器频率计读数；PA8→PA1 共用 STM32 同一时钟源，TIM2 测量值与设定值高度一致</p>
       </div>
       <div class="span-4" style="border-top:1px solid var(--ink);padding-top:1.6vh;margin-top:2vh">
         <span class="t-meta">超时归零</span>
@@ -430,42 +540,27 @@ $$
       </div>
       <div class="span-4" style="border-top:1px solid var(--ink);padding-top:1.6vh;margin-top:2vh">
         <span class="t-meta">结论</span>
-        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.6vh">示波器偏差 &lt; ±0.003%；同源环回下软件换算误差约为 0，绝对频率以示波器读数为参考</p>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.6vh">示波器偏差 &lt; ±0.003%；在 PA8→PA1 同源环回测试条件下，TIM2 测量结果与设定值高度一致；实际测量精度受定时器量化误差、输入信号质量和时钟源偏差影响</p>
       </div>
     </div>
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 13 · 示波器实测波形 -->
 <!-- ============================================================ -->
-<section class="slide light" data-layout="S04" data-animate="six-cells">
-  <div class="canvas-card" style="justify-content:center;align-items:center">
-    <div class="chrome-min"><div class="l">测频调试验证</div><div class="r">13 / 32</div></div>
-    <div style="text-align:center;margin-bottom:4vh">
-      <span class="t-cat accent">03 / 示波器测量截图</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh)">SIGLENT 示波器 50Hz 实测</h2>
-    </div>
-    <div class="img-frame lg">
-      <img src="figures/freq_50hz.png" alt="SIGLENT 示波器 50Hz 方波截图" style="max-height:55vh">
-      <span class="img-cap" style="font-size:max(12px,.75vw);margin-top:1.2vh">SIGLENT 示波器 · 50 Hz 方波实测 · f = 50.001 Hz · 周期 20.00 ms</span>
-    </div>
-  </div>
-</section>
-<!-- ============================================================ -->
-<!-- Slide 14 · 双通道 DAC -->
+<!-- Slide 15 · 双通道 DAC -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S19" data-animate="four-cards">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">双通道 DAC</div><div class="r">14 / 32</div></div>
+    <div class="chrome-min"><div class="l">双通道 DAC</div><div class="r">13 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:4vh">
-      <span class="t-cat accent">04 / DAC 正弦波发生</span>
+      <span class="t-cat accent">06 / DAC 测试源与 ADC 采样 · 测试信号发生</span>
       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">128 点查找表 · DMA 循环 · 双通道独立</h2>
     </div>
     <div class="grid-12" data-anim="up" style="flex:1">
       <div class="span-3 card-fill" style="padding:2.4vh 1.4vw;min-height:26vh;display:flex;flex-direction:column;justify-content:space-between">
         <span class="t-meta">— 设计任务</span>
         <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.3vw);margin-top:1vh">双路正弦测试信号</h3>
-        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:auto">PA4/PA5 输出 0–3.3V 正弦波，为 ADC 环回测试提供安全信号源；频率/幅度/相位独立可调</p>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:auto">PA4/PA5 输出 0–3.3V 正弦波，为 ADC 环回测试提供安全信号源；DAC 环回链路用于在不接入强电市电的情况下验证 ADC 采样、波形显示与电参量计算链路；频率/幅度/相位独立可调</p>
       </div>
       <div class="span-3 card-fill" style="padding:2.4vh 1.4vw;min-height:26vh;display:flex;flex-direction:column;justify-content:space-between">
         <span class="t-meta">— 查找表</span>
@@ -490,13 +585,13 @@ $$S'[n] = 2048 + (S[n]-2048) \times \frac{A}{2047}$$
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 15 · DAC 输出波形 -->
+<!-- Slide 16 · DAC 输出波形 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S04" data-animate="six-cells">
   <div class="canvas-card" style="justify-content:center;align-items:center">
-    <div class="chrome-min"><div class="l">双通道 DAC</div><div class="r">15 / 32</div></div>
+    <div class="chrome-min"><div class="l">双通道 DAC</div><div class="r">14 / 28</div></div>
     <div style="text-align:center;margin-bottom:4vh">
-      <span class="t-cat accent">04 / DA Wave 页面</span>
+      <span class="t-cat accent">06 / DAC 测试源与 ADC 采样 · DA Wave 输出</span>
       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh)">双通道 DAC 正弦波</h2>
     </div>
     <div class="img-frame lg">
@@ -506,13 +601,13 @@ $$S'[n] = 2048 + (S[n]-2048) \times \frac{A}{2047}$$
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 16 · DAC 调试与问题 -->
+<!-- Slide 17 · DAC 调试与问题 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S08" data-animate="duo-mirror">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">DAC 调试</div><div class="r">16 / 32</div></div>
+    <div class="chrome-min"><div class="l">DAC 调试</div><div class="r">15 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh">
-      <span class="t-cat accent">04 / DAC 调试结果与问题</span>
+      <span class="t-cat accent">06 / DAC 测试源与 ADC 采样 · 环回验证</span>
       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">环回验证 · 1.65V 中点偏置</h2>
     </div>
     <div class="duo-compare" style="margin-top:3vh;flex:1">
@@ -542,42 +637,31 @@ $$S'[n] = 2048 + (S[n]-2048) \times \frac{A}{2047}$$
         </div>
         <div style="border-top:1px solid var(--border-subtle);padding-top:1.2vh;margin-top:1.6vh">
           <span class="t-meta" style="color:var(--accent)">→ 实现</span>
-          <p class="t-body-sm" style="color:var(--accent);margin-top:.6vh;font-weight:500">算法扣除实际自校准零偏，消除硬件失调容差，无载读数完美归零</p>
+          <p class="t-body-sm" style="color:var(--accent);margin-top:.6vh;font-weight:500">算法扣除实际自校准零偏，消除硬件失调容差，无载读数稳定接近 0</p>
         </div>
       </div>
     </div>
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 17 · DAC 90°相位差 -->
 <!-- ============================================================ -->
-<section class="slide light" data-layout="S04" data-animate="six-cells">
-  <div class="canvas-card" style="justify-content:center;align-items:center">
-    <div class="chrome-min"><div class="l">DAC 调试</div><div class="r">17 / 32</div></div>
-    <div style="text-align:center;margin-bottom:4vh">
-      <span class="t-cat accent">04 / 双通道波形展示</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh)">CH1 / CH2 双路正弦波</h2>
-    </div>
-    <div class="img-frame lg">
-      <img src="figures/lcd_dawave.png" alt="LCD DA Wave 双通道正弦波" style="max-height:55vh">
-      <span class="img-cap" style="font-size:max(12px,.75vw);margin-top:1.2vh">LCD: DA Wave · CH1 绿 / CH2 黄 · DUAL 模式 · 90° 相位差</span>
-    </div>
-  </div>
-</section>
-<!-- ============================================================ -->
-<!-- Slide 18 · ADC 采样 -->
+<!-- Slide 19 · ADC 采样 -->
 <!-- ============================================================ -->
 <section class="slide split" data-layout="S03" data-animate="split-statement">
   <div class="canvas-card">
     <div class="split-half">
       <div class="half" style="padding:5.6vh 3.2vw 4.4vh;justify-content:space-between">
-        <div class="chrome-min"><div class="l">ADC 采样</div><div class="r">18 / 32</div></div>
+        <div class="chrome-min"><div class="l">ADC 采样</div><div class="r">16 / 28</div></div>
         <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:3vh">
-          <span class="t-cat accent">05 / ADC 多通道采样</span>
+          <span class="t-cat accent">06 / DAC 测试源与 ADC 采样 · 信号采集与 DMA</span>
           <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.6vw,6vh);line-height:1.1;letter-spacing:-.02em">三通道扫描与 DMA</h2>
         </div>
         <div style="display:flex;flex-direction:column;gap:1.2vh;margin-top:2vh">
           <div style="border-top:2px solid var(--accent);padding-top:1vh">
+            <span class="t-meta">实际信号来源 (miniIO 副板)</span>
+            <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.8vh">VL ← 电压互感器隔离 + 1.65V 偏置调理 → PC0<br>iL ← 电流互感器采样 + 1.65V 偏置调理 → PC3<br>iLK ← 零序 CT 漏电检测 + 1.65V 偏置调理 → PC2<br>fr ← 市电整形方波 → PA1/TIM2 输入捕获</p>
+          </div>
+          <div style="border-top:1px solid var(--border-subtle);padding-top:1vh">
             <span class="t-meta">设计任务</span>
             <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.8vh">同一触发源下准同步顺序扫描采样三路交流信号，每周期 128 点，供 RMS 和功率计算</p>
           </div>
@@ -620,13 +704,13 @@ $$S'[n] = 2048 + (S[n]-2048) \times \frac{A}{2047}$$
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 19 · 三重缓冲 -->
+<!-- Slide 20 · 三重缓冲 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S05" data-animate="sub-stack">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">三重缓冲</div><div class="r">19 / 32</div></div>
+    <div class="chrome-min"><div class="l">三重缓冲</div><div class="r">17 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh">
-      <span class="t-cat accent">05 / 数据隔离架构</span>
+      <span class="t-cat accent">06 / DAC 测试源与 ADC 采样 · 数据隔离架构</span>
       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">三层快照消除 DMA/LCD/串口竞争</h2>
     </div>
     <div class="stack-row">
@@ -655,14 +739,14 @@ $$S'[n] = 2048 + (S[n]-2048) \times \frac{A}{2047}$$
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 20 · LCD 波形绘制 -->
+<!-- Slide 21 · LCD 波形绘制 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S04" data-animate="six-cells">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">波形绘制</div><div class="r">20 / 32</div></div>
+    <div class="chrome-min"><div class="l">波形绘制</div><div class="r">18 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:2vh">
-      <span class="t-cat accent">05 / LCD 波形绘制</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">六页面状态机 · 实时波形显示</h2>
+      <span class="t-cat accent">06 / DAC 测试源与 ADC 采样 · 采样结果的本地可视化</span>
+       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">六页面状态机 · 采样结果可视化</h2>
     </div>
     <div class="sub-grid-3-2" data-anim="up" style="flex:1;align-content:start">
       <div class="sub-card"><span class="nb-corner">01</span><h4 class="ttl">Dashboard 仪表盘</h4><p class="desc">VRMS/IRMS/P/PF 数值 + ADC 实时波形；自动吸合继电器</p></div>
@@ -675,73 +759,60 @@ $$S'[n] = 2048 + (S[n]-2048) \times \frac{A}{2047}$$
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 21 · 核心界面展示 (1) -->
+<!-- Slide 22 · LCD 界面总览 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S04" data-animate="six-cells">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">波形绘制</div><div class="r">21 / 32</div></div>
+    <div class="chrome-min"><div class="l">LCD 界面总览</div><div class="r">19 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:1vh">
-      <span class="t-cat accent">05 / LCD 界面展示 (1)</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">系统主界面与调试菜单</h2>
+      <span class="t-cat accent">06 / DAC 测试源与 ADC 采样 · LCD 界面总览</span>
+      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">六页面 LCD 界面展示</h2>
     </div>
-    <div class="img-grid cols-3" style="margin-top:3vh;flex:1;align-items:start">
+    <div class="img-grid cols-3" style="margin-top:2vh;flex:1;align-items:start">
       <div class="img-frame lg">
-        <img src="figures/lcd_dashboard.png" alt="LCD Dashboard 仪表盘" style="max-height:51vh">
-        <span class="img-cap" style="font-size:max(11px,.7vw);font-weight:600;margin-top:0.8vh">Dashboard 仪表盘</span>
-        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.4vh;text-align:center;max-width:24ch">电压/电流/有功功率/PF 数值及实时交流波形绘制</p>
+        <img src="figures/lcd_dashboard.png" alt="LCD Dashboard" style="max-height:28vh">
+        <span class="img-cap" style="font-size:max(10px,.65vw);font-weight:600;margin-top:0.4vh">Dashboard</span>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.2vh;text-align:center;max-width:22ch">电参量与实时波形</p>
       </div>
       <div class="img-frame lg">
-        <img src="figures/lcd_testmenu.png" alt="LCD Test Menu 菜单" style="max-height:51vh">
-        <span class="img-cap" style="font-size:max(11px,.7vw);font-weight:600;margin-top:0.8vh">Test Menu 调试页</span>
-        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.4vh;text-align:center;max-width:24ch">PWM 发生/测频/DAC 输出及系统信息选择入口</p>
+        <img src="figures/lcd_testmenu.png" alt="LCD Test Menu" style="max-height:28vh">
+        <span class="img-cap" style="font-size:max(10px,.65vw);font-weight:600;margin-top:0.4vh">Test Menu</span>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.2vh;text-align:center;max-width:22ch">调试功能选择入口</p>
       </div>
       <div class="img-frame lg">
-        <img src="figures/lcd_dawave.png" alt="LCD DA Wave 波形" style="max-height:51vh">
-        <span class="img-cap" style="font-size:max(11px,.7vw);font-weight:600;margin-top:0.8vh">DA Wave 波形页</span>
-        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.4vh;text-align:center;max-width:24ch">TIM6/TIM7 触发的双通道 DAC 正弦波输出控制与预览</p>
+        <img src="figures/lcd_dawave.png" alt="LCD DA Wave" style="max-height:28vh">
+        <span class="img-cap" style="font-size:max(10px,.65vw);font-weight:600;margin-top:0.4vh">DA Wave</span>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.2vh;text-align:center;max-width:22ch">双通道 DAC 波形预览</p>
+      </div>
+      <div class="img-frame lg">
+        <img src="figures/lcd_square.png" alt="LCD PWM" style="max-height:28vh">
+        <span class="img-cap" style="font-size:max(10px,.65vw);font-weight:600;margin-top:0.4vh">PWM</span>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.2vh;text-align:center;max-width:22ch">TIM1 方波频率控制</p>
+      </div>
+      <div class="img-frame lg">
+        <img src="figures/lcd_measure.png" alt="LCD Measure" style="max-height:28vh">
+        <span class="img-cap" style="font-size:max(10px,.65vw);font-weight:600;margin-top:0.4vh">Freq Measure</span>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.2vh;text-align:center;max-width:22ch">TIM2 输入捕获测频</p>
+      </div>
+      <div class="img-frame lg">
+        <img src="figures/lcd_info.png" alt="LCD Info" style="max-height:28vh">
+        <span class="img-cap" style="font-size:max(10px,.65vw);font-weight:600;margin-top:0.4vh">System Info</span>
+        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.2vh;text-align:center;max-width:22ch">固件版本与 MCU 信息</p>
       </div>
     </div>
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 22 · 核心界面展示 (2) -->
 <!-- ============================================================ -->
-<section class="slide light" data-layout="S04" data-animate="six-cells">
-  <div class="canvas-card">
-    <div class="chrome-min"><div class="l">波形绘制</div><div class="r">22 / 32</div></div>
-    <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:1vh">
-      <span class="t-cat accent">05 / LCD 界面展示 (2)</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">发生、测量与信息界面</h2>
-    </div>
-    <div class="img-grid cols-3" style="margin-top:3vh;flex:1;align-items:start">
-      <div class="img-frame lg">
-        <img src="figures/lcd_square.png" alt="LCD PWM 方波" style="max-height:51vh">
-        <span class="img-cap" style="font-size:max(11px,.7vw);font-weight:600;margin-top:0.8vh">PWM 信号发生页</span>
-        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.4vh;text-align:center;max-width:24ch">TIM1 通道方波频率控制与当前状态显示</p>
-      </div>
-      <div class="img-frame lg">
-        <img src="figures/lcd_measure.png" alt="LCD Freq Measure" style="max-height:51vh">
-        <span class="img-cap" style="font-size:max(11px,.7vw);font-weight:600;margin-top:0.8vh">TIM2 频率测量页</span>
-        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.4vh;text-align:center;max-width:24ch">TIM2 输入捕获的高精度方波测频显示</p>
-      </div>
-      <div class="img-frame lg">
-        <img src="figures/lcd_info.png" alt="LCD System Info" style="max-height:51vh">
-        <span class="img-cap" style="font-size:max(11px,.7vw);font-weight:600;margin-top:0.8vh">System Info 信息页</span>
-        <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.4vh;text-align:center;max-width:24ch">包含固件编译版本时间、MCU 全局配置信息展示</p>
-      </div>
-    </div>
-  </div>
-</section>
-<!-- ============================================================ -->
-<!-- Slide 23 · 电参量计算——RMS -->
+<!-- Slide 24 · 电参量计算——RMS -->
 <!-- ============================================================ -->
 <section class="slide split" data-layout="S03" data-animate="split-statement">
   <div class="canvas-card">
     <div class="split-half">
       <div class="half" style="padding:5.6vh 3.2vw 4.4vh;justify-content:space-between">
-        <div class="chrome-min"><div class="l">电参量计算</div><div class="r">23 / 32</div></div>
+        <div class="chrome-min"><div class="l">电参量计算</div><div class="r">20 / 28</div></div>
         <div style="display:flex;flex-direction:column;gap:1.2vh">
-          <span class="t-cat accent">06 / 电参量计算</span>
+          <span class="t-cat accent">07 / 电参量计算与显示</span>
           <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.4vw,6vh);line-height:1.1">整型 RMS 与物理量换算</h2>
         </div>
         <div data-anim="rules" style="display:flex;flex-direction:column;gap:1.2vh;margin-top:1.6vh">
@@ -783,14 +854,15 @@ $$V \times 100 = \frac{\text{RMS} \times G_v}{1000} \quad (G_v = 17600)$$
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 24 · 模块化算法设计 -->
+<!-- Slide 25 · 模块化算法设计 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S19" data-animate="four-cards">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">模块化算法设计</div><div class="r">24 / 32</div></div>
+    <div class="chrome-min"><div class="l">模块化算法设计</div><div class="r">21 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:4vh">
-      <span class="t-cat accent">06 / 模块化高精度算法</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">高效定点整型运算 · 零浮点开销</h2>
+<span class="t-cat accent">07 / 电参量计算与显示</span>
+       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">高效定点整型运算 · 零浮点开销</h2>
+       <span class="t-meta" style="opacity:.7;margin-top:-.4vh;display:block">取舍：未采用 DFT/FFT 频谱法，优先满足 Cortex-M3 裸机实时性与零浮点开销</span>
     </div>
     <div class="grid-12" data-anim="up">
       <div class="span-3 card-fill" style="padding:2.4vh 1.4vw;min-height:28vh;display:flex;flex-direction:column;justify-content:space-between">
@@ -826,13 +898,13 @@ PmElectrical pm_calc_electrical(
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 25 · 电参量调试数据 -->
+<!-- Slide 26 · 电参量调试数据 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S08" data-animate="duo-mirror">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">电参量调试</div><div class="r">25 / 32</div></div>
+    <div class="chrome-min"><div class="l">电参量调试</div><div class="r">22 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh">
-      <span class="t-cat accent">06 / 电参量调试结果</span>
+<span class="t-cat accent">07 / 电参量计算与显示</span>
       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">幅值线性度 · 相位验证</h2>
     </div>
     <div class="duo-compare" style="margin-top:3vh;flex:1">
@@ -864,33 +936,17 @@ PmElectrical pm_calc_electrical(
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 25 · 电参量测量界面 -->
 <!-- ============================================================ -->
-<section class="slide light" data-layout="S04" data-animate="six-cells">
-  <div class="canvas-card" style="justify-content:center;align-items:center">
-    <div class="chrome-min"><div class="l">电参量调试</div><div class="r">26 / 32</div></div>
-    <div style="text-align:center;margin-bottom:4vh">
-      <span class="t-cat accent">06 / Dashboard 页面</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh)">交流电参量计算 LCD 界面 (Dashboard)</h2>
-    </div>
-    <div class="img-frame lg">
-      <img src="figures/lcd_dashboard.png" alt="LCD Dashboard 电参量页面" style="max-height:55vh">
-      <span class="img-cap" style="font-size:max(12px,.75vw);margin-top:1.2vh">LCD: Dashboard · 实时交流电参量与波形绘制</span>
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================ -->
-<!-- Slide 27 · 协议串口日志 -->
+<!-- Slide 28 · 协议串口日志 -->
 <!-- ============================================================ -->
 <section class="slide split" data-layout="S03" data-animate="split-statement">
   <div class="canvas-card">
     <div class="split-half">
       <div class="half" style="padding:5.6vh 3.2vw 4.4vh;justify-content:space-between">
-        <div class="chrome-min"><div class="l">协议验证</div><div class="r">27 / 32</div></div>
+        <div class="chrome-min"><div class="l">协议验证</div><div class="r">23 / 28</div></div>
         <div style="display:flex;flex-direction:column;gap:1.2vh">
-          <span class="t-cat accent">07 / 协议调试日志</span>
-          <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.6vw,6vh);line-height:1.1">上位机调试工具验证</h2>
+          <span class="t-cat accent">08 / 系统联调 · 通信协议验证</span>
+          <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.6vw,6vh);line-height:1.1">通信协议验证 · CRC 与自动上报</h2>
         </div>
         <div data-anim="rules" style="display:flex;flex-direction:column;gap:1.4vh;margin-top:2vh">
           <div style="border-top:2px solid var(--accent);padding-top:1vh">
@@ -933,13 +989,13 @@ $ serial_cmd "REPORT ON"
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 28 · miniIO 稳定性测试 -->
+<!-- Slide 29 · miniIO 稳定性测试 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S08" data-animate="duo-mirror">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">系统联调</div><div class="r">28 / 32</div></div>
+    <div class="chrome-min"><div class="l">系统联调</div><div class="r">24 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh">
-      <span class="t-cat accent">07 / 系统联机验证</span>
+      <span class="t-cat accent">08 / 系统联调 · 稳定性测试</span>
       <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">系统联调稳定性测试 (DAC 环回)</h2>
     </div>
     <div class="duo-compare" style="margin-top:3vh;flex:1">
@@ -955,7 +1011,7 @@ $ serial_cmd "REPORT ON"
         <div style="margin-top:1.6vh;border-top:1px solid var(--border-subtle);padding-top:1vh">
           <span class="t-meta">验证项目</span>
           <p class="t-body-sm" style="color:var(--text-secondary);margin-top:.4vh">上电 "OK COURSE1 READY" ✓<br>LCD/串口数据一致 ✓<br>REPORT ON 周期稳定 ✓</p>
-          <p class="t-body-sm" style="color:var(--accent);font-weight:600;margin-top:.4vh">* 注：测试采用 DAC 环回模式（单位增益）以验证系统长期运行稳定性。</p>
+          <p class="t-body-sm" style="color:var(--accent);font-weight:600;margin-top:.4vh">* 注：测试采用 DAC 环回模式（单位增益）以验证短时连续运行稳定性。</p>
         </div>
       </div>
       <span class="vrule"></span>
@@ -985,30 +1041,45 @@ $ serial_cmd "REPORT ON"
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 29 · 联机调试实物照片 -->
+<!-- Slide 30 · 联机调试实物照片 + 调试总表 -->
 <!-- ============================================================ -->
-<section class="slide light" data-layout="S04" data-animate="six-cells">
-  <div class="canvas-card" style="justify-content:center;align-items:center">
-    <div class="chrome-min"><div class="l">系统联调</div><div class="r">29 / 32</div></div>
-    <div style="text-align:center;margin-bottom:4vh">
-      <span class="t-cat accent">07 / 联机实物图</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh)">实际系统联调展示</h2>
-    </div>
-    <div class="img-frame lg">
-      <img src="figures/debug_online_actual.jpg" alt="联机调试实物照片" style="max-height:55vh">
-      <span class="img-cap" style="font-size:max(12px,.75vw);margin-top:1.2vh">联机实物：miniIO 副板接入市电 · TFT LCD 显示 Dashboard</span>
+<section class="slide split" data-layout="S03" data-animate="split-statement">
+  <div class="canvas-card">
+    <div class="split-half">
+      <div class="half" style="padding:3.6vh 2.4vw 3.6vh;display:flex;flex-direction:column;justify-content:center;align-items:center">
+        <div class="chrome-min"><div class="l">系统联调</div><div class="r">25 / 28</div></div>
+        <div class="img-frame lg" style="margin-top:1vh">
+          <img src="figures/debug_online_actual.jpg" alt="联机调试实物照片" style="max-height:48vh">
+          <span class="img-cap" style="font-size:max(10px,.62vw);margin-top:.6vh">联机实物：miniIO 副板接入市电 · TFT LCD 显示 Dashboard</span>
+        </div>
+      </div>
+      <div class="half b-grey" style="padding:3.6vh 2.4vw 3.6vh;display:flex;flex-direction:column;justify-content:flex-start">
+        <div class="chrome-min"><div class="l">调试总表</div><div class="r">5 项验证</div></div>
+        <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:2vh">
+      <span class="t-cat accent">08 / 系统联调 · 逐项验证</span>
+          <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(2.8vw,4.8vh);line-height:1.1">逐项验证结果</h2>
+        </div>
+        <table class="data-tbl" style="font-size:max(11px,.68vw);margin-top:1vh">
+          <tr><th>调试项目</th><th>测试内容</th><th>结果</th></tr>
+          <tr><td>通信协议测试</td><td>HELP / STATUS? / REPORT / CRC 错误丢弃</td><td style="color:var(--accent);font-weight:600">通过</td></tr>
+          <tr><td>频率调试</td><td>50 Hz / 100 Hz / 1 kHz / 10 kHz / 100 kHz</td><td style="color:var(--accent);font-weight:600">通过</td></tr>
+          <tr><td>AD 采样调试</td><td>三通道 DMA · 三重缓冲 · 波形稳定</td><td style="color:var(--accent);font-weight:600">通过</td></tr>
+          <tr><td>电参量调试</td><td>幅值线性 · 相位 / PF · 极性修正</td><td style="color:var(--accent);font-weight:600">通过</td></tr>
+          <tr><td>联机调试</td><td>miniIO 接入 · 继电器控制 · LCD / 串口一致</td><td style="color:var(--accent);font-weight:600">通过</td></tr>
+        </table>
+      </div>
     </div>
   </div>
 </section>
 <!-- ============================================================ -->
-<!-- Slide 30 · 关键问题排查 -->
+<!-- Slide 31 · 关键问题排查 -->
 <!-- ============================================================ -->
 <section class="slide light" data-layout="S19" data-animate="four-cards">
   <div class="canvas-card">
-    <div class="chrome-min"><div class="l">调试与排查</div><div class="r">30 / 32</div></div>
+    <div class="chrome-min"><div class="l">调试与排查</div><div class="r">26 / 28</div></div>
     <div style="display:flex;flex-direction:column;gap:1.6vh;margin-bottom:4vh">
-      <span class="t-cat accent">08 / 关键问题排查</span>
-      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">调试中的四类关键技术问题与闭环排查</h2>
+      <span class="t-cat accent">08 / 系统联调 · 问题排查</span>
+      <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.8vw,8vh);line-height:1.1;letter-spacing:-.02em">关键问题排查与工程修正</h2>
     </div>
     <div class="grid-12" data-anim="up" style="flex:1">
       <div class="span-3 card-fill" style="padding:2.4vh 1.2vw;min-height:28vh;display:flex;flex-direction:column;justify-content:space-between">
@@ -1025,7 +1096,7 @@ $ serial_cmd "REPORT ON"
         <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:500;font-size:max(16px,1.3vw);margin-top:1vh;color:var(--accent)">DMA 与 LCD 串口竞争</h3>
         <p class="t-body-sm" style="color:var(--text-secondary);margin-top:auto">
           <strong>现象：</strong>高频 LCD 刷新和串口输出时，采样波形断裂、电参量数据偶发跳变。<br>
-          <strong>成因：</strong>多线程前后台并发读写同一块 DMA 缓冲区。<br>
+          <strong>成因：</strong>DMA 中断与主循环并发访问同一缓冲区。<br>
           <strong>解决：</strong>设计“双缓冲+工作帧+显示快照”三重缓冲机制实现读写隔离。
         </p>
       </div>
@@ -1060,11 +1131,11 @@ $ serial_cmd "REPORT ON"
         <canvas class="ascii-bg" aria-hidden="true"></canvas>
         <div class="chrome-min" style="margin-bottom:0;position:relative;z-index:1">
           <div class="l">总结</div>
-          <div class="r">31 / 32</div>
+          <div class="r">27 / 28</div>
         </div>
         <div data-anim="manifesto" style="display:flex;flex-direction:column;gap:2vh;position:relative;z-index:1">
-          <div class="t-meta" style="color:rgba(255,255,255,.78);letter-spacing:.22em">总结与展望</div>
-          <h2 style="font-family:var(--sans),var(--sans-zh);font-size:min(4.3vw,8vh);line-height:.96;letter-spacing:-.025em;font-weight:200;color:#fff">系统联调通过<br>七大功能模块落地</h2>
+          <div class="t-meta" style="color:rgba(255,255,255,.78);letter-spacing:.22em">08 / 系统联调、问题排查与总结</div>
+          <h2 style="font-family:var(--sans),var(--sans-zh);font-size:min(4.3vw,8vh);line-height:.96;letter-spacing:-.025em;font-weight:200;color:#fff">系统联调通过<br>核心功能链路全部联调通过</h2>
         </div>
         <div data-anim="signature" style="display:flex;justify-content:space-between;align-items:end;border-top:1px solid rgba(255,255,255,.22);padding-top:2vh;position:relative;z-index:1">
           <div class="t-meta" style="color:rgba(255,255,255,.62)">桌面用电监控系统</div>
@@ -1072,7 +1143,7 @@ $ serial_cmd "REPORT ON"
         </div>
       </div>
       <div class="half" style="padding:5.6vh 3.6vw 4.4vh;justify-content:space-between">
-        <div class="chrome-min"><div class="l">核心收获</div><div class="r">3 项关键点</div></div>
+        <div class="chrome-min"><div class="l">核心收获</div><div class="r">5 项关键点</div></div>
         <div data-anim="rules" style="display:flex;flex-direction:column;gap:0">
           <div style="display:grid;grid-template-columns:auto 1fr;gap:2vw;align-items:start;padding:2.2vh 0;border-top:1px solid var(--border-subtle)">
             <div style="font-family:var(--sans);font-weight:200;font-size:min(4.4vw,7.8vh);line-height:.9;color:var(--text-primary)">01</div>
@@ -1088,11 +1159,25 @@ $ serial_cmd "REPORT ON"
               <p style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.88vw);line-height:1.5;color:var(--text-secondary)">C 语言外设控制 + Rust/C 接口整型算法包保障电参量计算精度与健壮性</p>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:auto 1fr;gap:2vw;align-items:start;padding:2.2vh 0;border-top:1px solid var(--border-subtle);border-bottom:2px solid var(--accent)">
-            <div style="font-family:var(--sans);font-weight:200;font-size:min(4.4vw,7.8vh);line-height:.9;color:var(--accent)">03</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:2vw;align-items:start;padding:2.2vh 0;border-top:1px solid var(--border-subtle)">
+            <div style="font-family:var(--sans);font-weight:200;font-size:min(4.4vw,7.8vh);line-height:.9;color:var(--text-primary)">03</div>
             <div>
-              <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(17px,1.6vw);line-height:1.2;color:var(--accent);margin-bottom:.8vh">改进方向</h3>
+              <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(17px,1.6vw);line-height:1.2;color:var(--text-primary);margin-bottom:.8vh">团队协作与 AI 辅助</h3>
+              <p style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.88vw);line-height:1.5;color:var(--text-secondary)">AI 辅助用于架构梳理、协议设计检查和数据竞争分析；引脚复用、硬件排查、寄存器配置和联机测试仍通过人工验证完成</p>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:2vw;align-items:start;padding:2.2vh 0;border-top:1px solid var(--border-subtle)">
+            <div style="font-family:var(--sans);font-weight:200;font-size:min(4.4vw,7.8vh);line-height:.9;color:var(--text-primary)">04</div>
+            <div>
+              <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(17px,1.6vw);line-height:1.2;color:var(--text-primary);margin-bottom:.8vh">改进方向</h3>
               <p style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.88vw);line-height:1.5;color:var(--text-secondary)">FFT 频谱分析 · 批量波形数据传输 · LCD 增量刷新减少闪烁</p>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:2vw;align-items:start;padding:2.2vh 0;border-top:1px solid var(--border-subtle);border-bottom:2px solid var(--accent)">
+            <div style="font-family:var(--sans);font-weight:200;font-size:min(4.4vw,7.8vh);line-height:.9;color:var(--accent)">05</div>
+            <div>
+              <h3 style="font-family:var(--sans),var(--sans-zh);font-weight:400;font-size:max(17px,1.6vw);line-height:1.2;color:var(--accent);margin-bottom:.8vh">核心功能链路</h3>
+              <p style="font-family:var(--sans),var(--sans-zh);font-size:max(15px,.88vw);line-height:1.5;color:var(--text-secondary)">频率生成与测量 · DAC 测试信号发生 · ADC 三通道采样 · 电参量整型计算 · LCD 本地交互 · USART 通信协议 · miniIO 联机控制 · 均已联调通过</p>
             </div>
           </div>
         </div>
@@ -1109,7 +1194,7 @@ $ serial_cmd "REPORT ON"
     <canvas class="ascii-bg" aria-hidden="true"></canvas>
     <div class="chrome-min">
       <div class="l">桌面用电监控系统 · END</div>
-      <div class="r">32 / 32</div>
+      <div class="r">28 / 28</div>
     </div>
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4vh;text-align:center">
       <h1 data-anim="title" style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(8vw,14vh);line-height:.92;letter-spacing:-.03em;color:#fff">谢谢</h1>
@@ -1134,5 +1219,6 @@ $ serial_cmd "REPORT ON"
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:'base',themeVariables:{primaryColor:'#f0f4f8',primaryBorderColor:'#334155',primaryTextColor:'#1e293b',lineColor:'#64748b',fontSize:'13px'}});</script>
 </body>
 </html>
