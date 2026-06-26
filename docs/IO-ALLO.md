@@ -46,7 +46,7 @@
 | PC9 | GPIO 推挽输出 | LCD_CS | TFTLCD CS | 输出 | 是 | LCD 占用 |
 | PC10 | GPIO 推挽输出 | LCD_BL | TFTLCD 背光 BL | 输出 | 是 | LCD 占用 |
 | PC11 | GPIO 推挽输出 | 蜂鸣器控制 `BEEP` | miniIO `beep`，JP1-9/10 | 输出 | 预留，当前未启用 | 原 24C02 SDA；本项目不使用 EEPROM |
-| PC12 | GPIO 推挽输出 | 继电器控制 `RELAY` | miniIO `relay`，JP1-11/12 | 输出 | 预留，当前未启用 | 原 24C02 SCL；高电平继电器动作 |
+| PC12 | GPIO 推挽输出 | 继电器控制 `RELAY` | miniIO `relay`，JP1-11/12 | 输出 | 是 | 原 24C02 SCL；高电平继电器吸合，上电默认断开，Dashboard页自动吸合，测试页及子页自动释放 |
 | PC13 | GPIO 推挽输出 / 输入上拉 | 触摸片选禁用 `TP_CS_DISABLE` | TFTLCD 触摸 CS | 输出/保留 | 是，安全态 | 置高或保持上拉，禁用触摸控制器 |
 | PC14 | RTC_OSC32_IN | 禁用 | 32.768kHz 晶振 | 晶振 | 否 | 不可作 GPIO |
 | PC15 | RTC_OSC32_OUT | 禁用 | 32.768kHz 晶振 | 晶振 | 否 | 不可作 GPIO |
