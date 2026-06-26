@@ -15,7 +15,7 @@ tools/serial_cmd/target
 CLAUDE.md
 
 # LaTeX build artifacts
-report/LaTex
+report/LaTex/*
 !report/LaTex/main.tex
 
 # PPT figures
