@@ -43,6 +43,6 @@
  *
  * 上位机和设备端都必须遵守。超过此长度的帧一律丢弃并回报 ERR BAD_FRAME。
  */
-#define APP_PROTOCOL_MAX_PAYLOAD       63U
+#define APP_PROTOCOL_MAX_PAYLOAD       512U
 
 #endif /* APP_PROTOCOL_DEFS_H */

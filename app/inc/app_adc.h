@@ -5,7 +5,7 @@
  * 三层快照架构（解决 DMA ISR / 主循环 / LCD-串口 数据竞争）：
  *   第一层  DMA HT/TC 中断 → deinterleave_frame() 写 ISR 双缓冲
  *   第二层  app_adc_task() 极短临界区取 ready idx → 工作帧 → Rust → 显示帧
- *   第三层  app_adc_get_samples() / app_adc_calibrate_zero() 统一读显示帧
+ *   第三层  app_adc_get_samples() 等接口统一读显示帧
  *
  * PC0/PC3/PC2 作为 ADC1_IN10/IN13/IN12，TIM3 TRGO 以 6400 Hz 触发 3 通道
  * 规则组扫描。DMA1_Channel1 以 2 倍帧长循环搬运，HT/TC 中断分别在半帧和
@@ -40,7 +40,7 @@ typedef struct {
     uint32_t apparent_power_x10;
     /** 功率因数 × 1000（范围 0..1000，例如 810 表示 0.810） */
     uint16_t power_factor_x1000;
-    /** 是否已执行过 CAL ZERO 校准（1 = 已校准） */
+    /** 是否已锁定上电零偏（1 = 已锁定） */
     uint8_t  zero_calibrated;
     /** 保留对齐 */
     uint8_t  reserved;

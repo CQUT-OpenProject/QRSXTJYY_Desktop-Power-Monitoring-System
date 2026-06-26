@@ -157,7 +157,8 @@ static void add_help(app_command_result_t *result)
 {
     add_response(result, "OK CMD HELP, STATUS?, REPORT?");
     add_response(result, "OK CMD REPORT ON|OFF, PWM SET <hz>");
-    add_response(result, "OK CMD DAC SET MODE|FREQ|AMP|PHASE <val>");
+    add_response(result, "OK CMD DAC SET MODE SINGLE|DUAL");
+    add_response(result, "OK CMD DAC SET [CH1|CH2] FREQ|AMP|PHASE <val>");
 }
 
 /** 读取当前监控快照并追加 STATUS 响应行。 */
@@ -211,13 +212,15 @@ static void handle_dac_mode(const char *mode, app_command_result_t *result)
 }
 
 /**
- * @brief 处理 DAC 数值类设置命令 (FREQ / AMP / PHASE)。
+ * @brief 处理 DAC 数值类设置命令，支持通道独立控制。
  *
+ * @param channel 0 = 统一/Legacy, 1 = CH1, 2 = CH2。
  * @param field 0 = 频率, 1 = 幅度, 2 = 相位。
  */
-static void handle_dac_number(const char *value_text,
-                              app_command_result_t *result,
-                              uint8_t field)
+static void handle_dac_number_ch(const char *value_text,
+                                 app_command_result_t *result,
+                                 uint8_t channel,
+                                 uint8_t field)
 {
     app_dac_config_t config;
     uint32_t value;
@@ -229,24 +232,52 @@ static void handle_dac_number(const char *value_text,
 
     app_dac_get_config(&config);
     result->monitor_changed = 1U;
+
     if (field == 0U) {
-        /* 修改频率，超范围值在 app_dac_apply_config 中夹住 */
-        config.frequency_hz = value;
-        app_dac_apply_config(&config);
-        app_dac_get_config(&config);
-        add_response(result, "OK DAC FREQ=%luHz", (unsigned long)config.frequency_hz);
+        /* 修改频率 */
+        if (channel == 1U) {
+            config.frequency_hz = value;
+            app_dac_apply_config(&config);
+            app_dac_get_config(&config);
+            add_response(result, "OK DAC CH1 FREQ=%luHz", (unsigned long)config.frequency_hz);
+        } else if (channel == 2U) {
+            config.frequency_hz_ch2 = value;
+            app_dac_apply_config(&config);
+            app_dac_get_config(&config);
+            add_response(result, "OK DAC CH2 FREQ=%luHz", (unsigned long)config.frequency_hz_ch2);
+        } else {
+            add_response(result, "ERR BAD_COMMAND");
+        }
     } else if (field == 1U) {
-        /* 修改幅度，过大值被限制到安全码值 */
-        config.amplitude = (uint16_t)value;
-        app_dac_apply_config(&config);
-        app_dac_get_config(&config);
-        add_response(result, "OK DAC AMP=%u", config.amplitude);
+        /* 修改幅度 */
+        if (channel == 1U) {
+            config.amplitude = (uint16_t)value;
+            app_dac_apply_config(&config);
+            app_dac_get_config(&config);
+            add_response(result, "OK DAC CH1 AMP=%u", config.amplitude);
+        } else if (channel == 2U) {
+            config.amplitude_ch2 = (uint16_t)value;
+            app_dac_apply_config(&config);
+            app_dac_get_config(&config);
+            add_response(result, "OK DAC CH2 AMP=%u", config.amplitude_ch2);
+        } else {
+            add_response(result, "ERR BAD_COMMAND");
+        }
     } else {
-        /* DAC SET PHASE，单位度 */
-        config.phase_degrees = (uint16_t)value;
-        app_dac_apply_config(&config);
-        app_dac_get_config(&config);
-        add_response(result, "OK DAC PHASE=%u", config.phase_degrees);
+        /* 修改相位，单位度 */
+        if (channel == 1U) {
+            config.phase_degrees = (uint16_t)value;
+            app_dac_apply_config(&config);
+            app_dac_get_config(&config);
+            add_response(result, "OK DAC CH1 PHASE=%u", config.phase_degrees);
+        } else if (channel == 2U) {
+            config.phase_degrees_ch2 = (uint16_t)value;
+            app_dac_apply_config(&config);
+            app_dac_get_config(&config);
+            add_response(result, "OK DAC CH2 PHASE=%u", config.phase_degrees_ch2);
+        } else {
+            add_response(result, "ERR BAD_COMMAND");
+        }
     }
 }
 
@@ -305,12 +336,18 @@ void app_command_handle_line(const char *line, app_command_result_t *result)
         handle_pwm_set(cmd, result);
     } else if (starts_with_ci(cmd, "DAC SET MODE ") != 0U) {
         handle_dac_mode(cmd + (sizeof("DAC SET MODE ") - 1U), result);
-    } else if (starts_with_ci(cmd, "DAC SET FREQ ") != 0U) {
-        handle_dac_number(cmd + (sizeof("DAC SET FREQ ") - 1U), result, 0U);
-    } else if (starts_with_ci(cmd, "DAC SET AMP ") != 0U) {
-        handle_dac_number(cmd + (sizeof("DAC SET AMP ") - 1U), result, 1U);
-    } else if (starts_with_ci(cmd, "DAC SET PHASE ") != 0U) {
-        handle_dac_number(cmd + (sizeof("DAC SET PHASE ") - 1U), result, 2U);
+    } else if (starts_with_ci(cmd, "DAC SET CH1 FREQ ") != 0U) {
+        handle_dac_number_ch(cmd + (sizeof("DAC SET CH1 FREQ ") - 1U), result, 1U, 0U);
+    } else if (starts_with_ci(cmd, "DAC SET CH2 FREQ ") != 0U) {
+        handle_dac_number_ch(cmd + (sizeof("DAC SET CH2 FREQ ") - 1U), result, 2U, 0U);
+    } else if (starts_with_ci(cmd, "DAC SET CH1 AMP ") != 0U) {
+        handle_dac_number_ch(cmd + (sizeof("DAC SET CH1 AMP ") - 1U), result, 1U, 1U);
+    } else if (starts_with_ci(cmd, "DAC SET CH2 AMP ") != 0U) {
+        handle_dac_number_ch(cmd + (sizeof("DAC SET CH2 AMP ") - 1U), result, 2U, 1U);
+    } else if (starts_with_ci(cmd, "DAC SET CH1 PHASE ") != 0U) {
+        handle_dac_number_ch(cmd + (sizeof("DAC SET CH1 PHASE ") - 1U), result, 1U, 2U);
+    } else if (starts_with_ci(cmd, "DAC SET CH2 PHASE ") != 0U) {
+        handle_dac_number_ch(cmd + (sizeof("DAC SET CH2 PHASE ") - 1U), result, 2U, 2U);
     } else if (equals_ci(cmd, "SHOT") != 0U) {
         app_screenshot_dump();
         add_response(result, "OK SHOT DONE");
@@ -352,17 +389,20 @@ void app_command_format_status(const app_monitor_state_t *state,
         snprintf(line,
                  line_size,
                  "OK STATUS MEAS=%lu.%02luHz PWM=%luHz REPORT=%s "
-                 "DAC_MODE=%s DAC_FREQ=%luHz DAC_AMP=%u DAC_PHASE=%u "
+                 "DAC_MODE=%s DAC_FREQ1=%luHz DAC_FREQ2=%luHz DAC_AMP1=%u DAC_AMP2=%u DAC_PHASE1=%u DAC_PHASE2=%u "
                  "VRMS=%lu.%02lu IRMS=%lu.%03lu ILK=%lu.%03lu "
-                 "P=%s%lu.%01lu S=%lu.%01lu PF=%lu.%03lu CAL=%s",
+                 "P=%s%lu.%01lu S=%lu.%01lu PF=%lu.%03lu ZERO=%s",
                  (unsigned long)(state->mains_frequency.frequency_x100 / 100U),
                  (unsigned long)(state->mains_frequency.frequency_x100 % 100U),
                  (unsigned long)state->pwm_output.frequency_hz,
                  s_auto_report_enabled != 0U ? "ON" : "OFF",
                  state->dac_output.config.mode == APP_DAC_MODE_DUAL ? "DUAL" : "SINGLE",
                  (unsigned long)state->dac_output.config.frequency_hz,
+                 (unsigned long)state->dac_output.config.frequency_hz_ch2,
                  state->dac_output.config.amplitude,
+                 state->dac_output.config.amplitude_ch2,
                  state->dac_output.config.phase_degrees,
+                 state->dac_output.config.phase_degrees_ch2,
                  (unsigned long)(state->adc.params->vrms_x100 / 100U),
                  (unsigned long)(state->adc.params->vrms_x100 % 100U),
                  (unsigned long)(state->adc.params->irms_x1000 / 1000U),
@@ -376,12 +416,12 @@ void app_command_format_status(const app_monitor_state_t *state,
                  (unsigned long)(state->adc.params->apparent_power_x10 % 10U),
                  (unsigned long)(state->adc.params->power_factor_x1000 / 1000U),
                  (unsigned long)(state->adc.params->power_factor_x1000 % 1000U),
-                 state->adc.params->zero_calibrated != 0U ? "YES" : "NO");
+                 state->adc.params->zero_calibrated != 0U ? "LOCKED" : "UNLOCKED");
     } else {
         snprintf(line,
                  line_size,
                  "OK STATUS MEAS=%lu.%02luHz PWM=%luHz REPORT=%s "
-                 "DAC_MODE=%s DAC_FREQ=%luHz DAC_AMP=%u DAC_PHASE=%u "
+                 "DAC_MODE=%s DAC_FREQ1=%luHz DAC_FREQ2=%luHz DAC_AMP1=%u DAC_AMP2=%u DAC_PHASE1=%u DAC_PHASE2=%u "
                  "VRMS=NA",
                  (unsigned long)(state->mains_frequency.frequency_x100 / 100U),
                  (unsigned long)(state->mains_frequency.frequency_x100 % 100U),
@@ -389,8 +429,11 @@ void app_command_format_status(const app_monitor_state_t *state,
                  s_auto_report_enabled != 0U ? "ON" : "OFF",
                  state->dac_output.config.mode == APP_DAC_MODE_DUAL ? "DUAL" : "SINGLE",
                  (unsigned long)state->dac_output.config.frequency_hz,
+                 (unsigned long)state->dac_output.config.frequency_hz_ch2,
                  state->dac_output.config.amplitude,
-                 state->dac_output.config.phase_degrees);
+                 state->dac_output.config.amplitude_ch2,
+                 state->dac_output.config.phase_degrees,
+                 state->dac_output.config.phase_degrees_ch2);
     }
     line[line_size - 1U] = '\0';
 }
