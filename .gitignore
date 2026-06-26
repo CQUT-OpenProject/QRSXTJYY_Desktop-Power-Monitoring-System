@@ -16,3 +16,9 @@ CLAUDE.md
 
 # LaTeX build artifacts
 report/LaTex
+!report/LaTex/main.tex
+
+# PPT figures
+report/PPT/figures/
+
+report/PPT/figures
