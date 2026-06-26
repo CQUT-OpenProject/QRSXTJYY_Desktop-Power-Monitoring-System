@@ -25,9 +25,12 @@ typedef enum {
  */
 typedef struct {
     app_dac_mode_t mode;          /**< 单通道或双通道。 */
-    uint32_t frequency_hz;        /**< 正弦波频率，单位 Hz。 */
-    uint16_t amplitude;           /**< 幅度（12 位 DAC 码值 0..2047）。 */
-    uint16_t phase_degrees;       /**< 第二通道相位差，单位度，0..359。 */
+    uint32_t frequency_hz;        /**< 通道1 正弦波频率，单位 Hz。 */
+    uint32_t frequency_hz_ch2;    /**< 通道2 正弦波频率，单位 Hz。 */
+    uint16_t amplitude;           /**< 通道1 幅度（12 位 DAC 码值 0..2047）。 */
+    uint16_t amplitude_ch2;       /**< 通道2 幅度（12 位 DAC 码值 0..2047）。 */
+    uint16_t phase_degrees;       /**< 通道1 相位，单位度，0..359。 */
+    uint16_t phase_degrees_ch2;   /**< 通道2 相位，单位度，0..359。 */
 } app_dac_config_t;
 
 /**

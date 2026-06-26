@@ -385,32 +385,26 @@ static void render_da_page(const app_monitor_state_t *state, const app_ui_state_
 
     /* 显示参数 (下半区) */
     {
-        uint16_t label_y = param_y; /* 176U, 直接位于波形图 (163) 下方 */
+        /* 清除参数区域背景 */
+        LCD_Fill(0U, param_y, lcddev.width - 1U, (uint16_t)(param_y + 60U), BLACK);
 
-        /* 先用黑色清除该行背景 */
-        LCD_Fill(0U, label_y, lcddev.width - 1U, (uint16_t)(label_y + UI_FONT_H - 1U), BLACK);
-
-        /* 绿色绘制 "CH1 Green" */
-        POINT_COLOR = GREEN;
-        BACK_COLOR = BLACK;
-        {
-            uint16_t total_w = 72U + 24U + 80U; /* "CH1 Green" (72px) + 3 spaces (24px) + "CH2 Yellow" (80px) */
-            uint16_t start_x = (uint16_t)((lcddev.width - total_w) / 2U);
-            LCD_ShowString(start_x, label_y, 72U, UI_FONT_H, UI_FONT_H, (u8 *)"CH1 Green");
-            /* 黄色绘制 "CH2 Yellow" */
-            POINT_COLOR = YELLOW;
-            LCD_ShowString((uint16_t)(start_x + 72U + 24U), label_y, 80U, UI_FONT_H, UI_FONT_H, (u8 *)"CH2 Yellow");
-        }
-
-        /* 渲染 Mode 和 Amp，放在颜色标识下方 */
-        snprintf(line, sizeof(line), "Mode:%s Freq:%luHz",
-                 state->dac_output.config.mode == APP_DAC_MODE_DUAL ? "DUAL" : "SINGLE",
-                 (unsigned long)state->dac_output.config.frequency_hz);
-        show_text_line(10U, (uint16_t)(param_y + 22U), line, WHITE);
-
-        snprintf(line, sizeof(line), "Amp:%u Phase:%u",
+        /* 绿色渲染 CH1 参数 */
+        snprintf(line, sizeof(line), "CH1 Freq:%luHz Amp:%u P:%u",
+                 (unsigned long)state->dac_output.config.frequency_hz,
                  state->dac_output.config.amplitude,
                  state->dac_output.config.phase_degrees);
+        show_text_line(10U, param_y, line, GREEN);
+
+        /* 黄色渲染 CH2 参数 */
+        snprintf(line, sizeof(line), "CH2 Freq:%luHz Amp:%u P:%u",
+                 (unsigned long)state->dac_output.config.frequency_hz_ch2,
+                 state->dac_output.config.amplitude_ch2,
+                 state->dac_output.config.phase_degrees_ch2);
+        show_text_line(10U, (uint16_t)(param_y + 22U), line, YELLOW);
+
+        /* 白色渲染 Global Mode */
+        snprintf(line, sizeof(line), "Mode:%s",
+                 state->dac_output.config.mode == APP_DAC_MODE_DUAL ? "DUAL" : "SINGLE");
         show_text_line(10U, (uint16_t)(param_y + 44U), line, WHITE);
     }
 

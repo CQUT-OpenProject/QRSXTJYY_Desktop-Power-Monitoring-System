@@ -35,16 +35,13 @@ static const uint16_t s_sine_fullscale[APP_DAC_TABLE_SIZE] = {
 static uint16_t s_dac_ch1[APP_DAC_TABLE_SIZE];
 static uint16_t s_dac_ch2[APP_DAC_TABLE_SIZE];
 
-/*
- * DUAL 模式使用的交错缓冲区，每个 32 位元素包含 CH1(低 16) + CH2(高 16)，
- * 通过 DAC->DHR12RD 一次 DMA 搬运同时更新两通道。
- */
-static uint32_t s_dac_dual[APP_DAC_TABLE_SIZE];
-
 static app_dac_config_t s_config = {
     APP_DAC_MODE_SINGLE,
     APP_DAC_DEFAULT_FREQ_HZ,
+    APP_DAC_DEFAULT_FREQ_HZ,
     APP_DAC_DEFAULT_AMPLITUDE,
+    APP_DAC_DEFAULT_AMPLITUDE,
+    0U,
     0U
 };
 
@@ -90,16 +87,17 @@ static uint16_t scale_sample(uint16_t raw, uint16_t amplitude)
 static void rebuild_buffers(void)
 {
     uint16_t i;
-    uint16_t phase_index =
+    uint16_t phase_index_ch1 =
         (uint16_t)(((uint32_t)s_config.phase_degrees * APP_DAC_TABLE_SIZE) / 360U);
+    uint16_t phase_index_ch2 =
+        (uint16_t)(((uint32_t)s_config.phase_degrees_ch2 * APP_DAC_TABLE_SIZE) / 360U);
 
     for (i = 0U; i < APP_DAC_TABLE_SIZE; i++) {
-        s_dac_ch1[i] = scale_sample(s_sine_fullscale[i], s_config.amplitude);
+        uint16_t idx1 = (uint16_t)((i + phase_index_ch1) % APP_DAC_TABLE_SIZE);
+        s_dac_ch1[i] = scale_sample(s_sine_fullscale[idx1], s_config.amplitude);
         if (s_config.mode == APP_DAC_MODE_DUAL) {
-            uint16_t j = (uint16_t)((i + phase_index) % APP_DAC_TABLE_SIZE);
-            s_dac_ch2[i] = scale_sample(s_sine_fullscale[j], s_config.amplitude);
-            s_dac_dual[i] = (uint32_t)s_dac_ch1[i] |
-                            ((uint32_t)s_dac_ch2[i] << 16U);
+            uint16_t idx2 = (uint16_t)((i + phase_index_ch2) % APP_DAC_TABLE_SIZE);
+            s_dac_ch2[i] = scale_sample(s_sine_fullscale[idx2], s_config.amplitude_ch2);
         } else {
             s_dac_ch2[i] = APP_DAC_MID_CODE;
         }
@@ -144,67 +142,58 @@ static void configure_dma(void)
     DMA_DeInit(DMA2_Channel3);
     DMA_DeInit(DMA2_Channel4);
 
-    if (s_config.mode == APP_DAC_MODE_DUAL) {
-        /* DUAL 模式：DMA2_Channel3 → DAC->DHR12RD，32 位一次搬运两路 */
-        DMA_StructInit(&dma);
-        dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12RD;
-        dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_dual;
-        dma.DMA_DIR = DMA_DIR_PeripheralDST;
-        dma.DMA_BufferSize = APP_DAC_TABLE_SIZE;
-        dma.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-        dma.DMA_MemoryInc = DMA_MemoryInc_Enable;
-        dma.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Word;
-        dma.DMA_MemoryDataSize = DMA_MemoryDataSize_Word;
-        dma.DMA_Mode = DMA_Mode_Circular;
-        dma.DMA_Priority = DMA_Priority_High;
-        dma.DMA_M2M = DMA_M2M_Disable;
-        DMA_Init(DMA2_Channel3, &dma);
-    } else {
-        /* SINGLE 模式：CH3 → DHR12R1（正弦波），CH4 → DHR12R2（中点电压） */
-        DMA_StructInit(&dma);
-        dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12R1;
-        dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_ch1;
-        dma.DMA_DIR = DMA_DIR_PeripheralDST;
-        dma.DMA_BufferSize = APP_DAC_TABLE_SIZE;
-        dma.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-        dma.DMA_MemoryInc = DMA_MemoryInc_Enable;
-        dma.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-        dma.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-        dma.DMA_Mode = DMA_Mode_Circular;
-        dma.DMA_Priority = DMA_Priority_High;
-        dma.DMA_M2M = DMA_M2M_Disable;
-        DMA_Init(DMA2_Channel3, &dma);
+    /* 通道1 DMA配置：DMA2_Channel3 → DAC->DHR12R1 */
+    DMA_StructInit(&dma);
+    dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12R1;
+    dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_ch1;
+    dma.DMA_DIR = DMA_DIR_PeripheralDST;
+    dma.DMA_BufferSize = APP_DAC_TABLE_SIZE;
+    dma.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+    dma.DMA_MemoryInc = DMA_MemoryInc_Enable;
+    dma.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+    dma.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+    dma.DMA_Mode = DMA_Mode_Circular;
+    dma.DMA_Priority = DMA_Priority_High;
+    dma.DMA_M2M = DMA_M2M_Disable;
+    DMA_Init(DMA2_Channel3, &dma);
 
-        dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12R2;
-        dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_ch2;
-        DMA_Init(DMA2_Channel4, &dma);
-    }
+    /* 通道2 DMA配置：DMA2_Channel4 → DAC->DHR12R2 */
+    dma.DMA_PeripheralBaseAddr = (uint32_t)&DAC->DHR12R2;
+    dma.DMA_MemoryBaseAddr = (uint32_t)s_dac_ch2;
+    DMA_Init(DMA2_Channel4, &dma);
 }
 
 /** 停 DMA/TIM6 → 重建波形表 → 配置 DMA → 更新 TIM6 参数 → 重新启动。 */
 static void apply_output_config(void)
 {
-    uint16_t psc;
-    uint16_t arr;
-    uint32_t sample_rate_hz = s_config.frequency_hz * APP_DAC_TABLE_SIZE;
+    uint16_t psc1, arr1;
+    uint16_t psc2, arr2;
+    uint32_t sample_rate_hz1 = s_config.frequency_hz * APP_DAC_TABLE_SIZE;
+    uint32_t sample_rate_hz2 = s_config.frequency_hz_ch2 * APP_DAC_TABLE_SIZE;
 
     TIM_Cmd(TIM6, DISABLE);
+    TIM_Cmd(TIM7, DISABLE);
     DMA_Cmd(DMA2_Channel3, DISABLE);
     DMA_Cmd(DMA2_Channel4, DISABLE);
 
     rebuild_buffers();
     configure_dma();
-    calc_timer_params(sample_rate_hz, &psc, &arr);
-
-    TIM_PrescalerConfig(TIM6, psc, TIM_PSCReloadMode_Immediate);
-    TIM_SetAutoreload(TIM6, arr);
+    
+    calc_timer_params(sample_rate_hz1, &psc1, &arr1);
+    TIM_PrescalerConfig(TIM6, psc1, TIM_PSCReloadMode_Immediate);
+    TIM_SetAutoreload(TIM6, arr1);
     TIM_GenerateEvent(TIM6, TIM_EventSource_Update);
 
+    calc_timer_params(sample_rate_hz2, &psc2, &arr2);
+    TIM_PrescalerConfig(TIM7, psc2, TIM_PSCReloadMode_Immediate);
+    TIM_SetAutoreload(TIM7, arr2);
+    TIM_GenerateEvent(TIM7, TIM_EventSource_Update);
+
     DMA_Cmd(DMA2_Channel3, ENABLE);
-    if (s_config.mode == APP_DAC_MODE_SINGLE) {
-        DMA_Cmd(DMA2_Channel4, ENABLE);
-    }
+    DMA_Cmd(DMA2_Channel4, ENABLE);
+    
     TIM_Cmd(TIM6, ENABLE);
+    TIM_Cmd(TIM7, ENABLE);
 }
 
 /**
@@ -220,7 +209,7 @@ void app_dac_init(void)
     TIM_TimeBaseInitTypeDef time_base;
 
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_DAC | RCC_APB1Periph_TIM6, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_DAC | RCC_APB1Periph_TIM6 | RCC_APB1Periph_TIM7, ENABLE);
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA2, ENABLE);
 
     GPIO_StructInit(&gpio);
@@ -234,12 +223,17 @@ void app_dac_init(void)
     TIM_TimeBaseInit(TIM6, &time_base);
     TIM_SelectOutputTrigger(TIM6, TIM_TRGOSource_Update);
 
+    TIM_TimeBaseInit(TIM7, &time_base);
+    TIM_SelectOutputTrigger(TIM7, TIM_TRGOSource_Update);
+
     DAC_StructInit(&dac);
     dac.DAC_Trigger = DAC_Trigger_T6_TRGO;
     dac.DAC_WaveGeneration = DAC_WaveGeneration_None;
     dac.DAC_LFSRUnmask_TriangleAmplitude = DAC_LFSRUnmask_Bit0;
     dac.DAC_OutputBuffer = DAC_OutputBuffer_Enable;
     DAC_Init(DAC_Channel_1, &dac);
+    
+    dac.DAC_Trigger = DAC_Trigger_T7_TRGO;
     DAC_Init(DAC_Channel_2, &dac);
 
     DAC_Cmd(DAC_Channel_1, ENABLE);
@@ -262,8 +256,11 @@ static app_dac_config_t normalized_config(const app_dac_config_t *config)
     normalized.mode =
         normalized.mode == APP_DAC_MODE_DUAL ? APP_DAC_MODE_DUAL : APP_DAC_MODE_SINGLE;
     normalized.frequency_hz = clamp_frequency(normalized.frequency_hz);
+    normalized.frequency_hz_ch2 = clamp_frequency(normalized.frequency_hz_ch2);
     normalized.amplitude = clamp_amplitude(normalized.amplitude);
+    normalized.amplitude_ch2 = clamp_amplitude(normalized.amplitude_ch2);
     normalized.phase_degrees = (uint16_t)(normalized.phase_degrees % 360U);
+    normalized.phase_degrees_ch2 = (uint16_t)(normalized.phase_degrees_ch2 % 360U);
     return normalized;
 }
 
@@ -295,7 +292,17 @@ void app_dac_read_output(app_dac_output_t *output)
     output->config = s_config;
     output->waveform_sample_count = APP_DAC_TABLE_SIZE;
     for (i = 0U; i < APP_DAC_TABLE_SIZE; i++) {
-        output->waveform_ch1[i] = s_dac_ch1[i];
-        output->waveform_ch2[i] = s_dac_ch2[i];
+        /* 使用 20ms（与仪表盘页一致）作为虚拟示波器时间轴计算预览波形，使频率变化在屏幕上可见 */
+        uint32_t idx1 = ((uint32_t)i * s_config.frequency_hz * 2U) / 100U +
+                        ((uint32_t)s_config.phase_degrees * APP_DAC_TABLE_SIZE) / 360U;
+        output->waveform_ch1[i] = scale_sample(s_sine_fullscale[idx1 % APP_DAC_TABLE_SIZE], s_config.amplitude);
+
+        if (s_config.mode == APP_DAC_MODE_DUAL) {
+            uint32_t idx2 = ((uint32_t)i * s_config.frequency_hz_ch2 * 2U) / 100U +
+                            ((uint32_t)s_config.phase_degrees_ch2 * APP_DAC_TABLE_SIZE) / 360U;
+            output->waveform_ch2[i] = scale_sample(s_sine_fullscale[idx2 % APP_DAC_TABLE_SIZE], s_config.amplitude_ch2);
+        } else {
+            output->waveform_ch2[i] = APP_DAC_MID_CODE;
+        }
     }
 }
