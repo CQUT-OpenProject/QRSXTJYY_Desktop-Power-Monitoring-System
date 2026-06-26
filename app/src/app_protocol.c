@@ -119,7 +119,7 @@ static void send_crc_protected_byte(uint8_t byte, uint16_t *crc)
  * @brief 发送一帧二进制协议帧，payload 为文本。
  *
  * 帧结构（小端序）：
- *   SOF0 | SOF1 | VERSION | TYPE | SEQ_L | SEQ_H | LEN_L | LEN_H
+ *   SOF0 | SOF1 | VERSION | TYPE | SEQ | LEN_L | LEN_H
  *   | PAYLOAD[0..LEN-1] | CRC16_L | CRC16_H
  */
 static void send_text_frame(uint8_t type, uint8_t seq, const char *payload)

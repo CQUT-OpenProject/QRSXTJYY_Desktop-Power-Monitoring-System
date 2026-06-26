@@ -6,7 +6,7 @@
  * 修改帧格式时只改这一个文件，两端保持一致。
  *
  * 帧结构（小端序）：
- *   SOF0 | SOF1 | VERSION | TYPE | SEQ_L | SEQ_H | LEN_L | LEN_H
+ *   SOF0 | SOF1 | VERSION | TYPE | SEQ | LEN_L | LEN_H
  *   | PAYLOAD[0..LEN-1] | CRC16_L | CRC16_H
  *
  * CRC16 覆盖 VERSION 到 PAYLOAD 末尾（不含 SOF 和 CRC 本身）。
