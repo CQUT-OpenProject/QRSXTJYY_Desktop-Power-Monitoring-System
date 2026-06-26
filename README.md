@@ -54,9 +54,9 @@ REPORT ON
 REPORT OFF
 PWM SET <hz>
 DAC SET MODE SINGLE|DUAL
-DAC SET FREQ <hz>
-DAC SET AMP <code>
-DAC SET PHASE <deg>
+DAC SET CH1|CH2 FREQ <hz>
+DAC SET CH1|CH2 AMP <code>
+DAC SET CH1|CH2 PHASE <deg>
 SHOT
 ```
 
@@ -65,8 +65,8 @@ SHOT
 - `STATUS?` 返回 PA1 测频、PWM 频率、上报开关、DAC 模式/频率/幅值/相位、以及 ADC 电参数（Vrms/Irms/漏电流/有功功率/视在功率/功率因数）。
 - `HELP` 会返回多条 `TYPE=0x81` 响应帧，每条响应帧使用同一个 `SEQ`。
 - `DAC SET MODE SINGLE` 时，CH1 输出正弦波，CH2 保持 DAC 中点电压。
-- `DAC SET MODE DUAL` 时，CH1/CH2 输出同频同幅正弦波，CH2 相对 CH1 使用 `DAC SET PHASE` 指定相位差。
-- `DAC SET FREQ` 当前限制在 1..1000 Hz，`DAC SET AMP` 当前限制到安全码值范围内。
+- `DAC SET MODE DUAL` 时，CH1/CH2 输出正弦波，CH2 相对 CH1 的相位差可通过 `DAC SET CH2 PHASE` 进行调整。
+- `DAC SET CH1|CH2 FREQ` 当前限制在 1..1000 Hz，`DAC SET CH1|CH2 AMP` 当前限制到安全码值范围内。
 - `SHOT` 是调试辅助命令（不在 `HELP` 列表中）：设备把当前 LCD 画面按 RLE 十六进制文本经 `TYPE=0x84` 帧分块上传，由上位机 `shot` 工具重建为 PNG。
 - 设备启动后会主动发送 `TYPE=0x82, SEQ=0, PAYLOAD="OK COURSE1 READY"`。
 - CRC 错误、帧不完整或 SOF 噪声会被静默丢弃；版本、类型或 payload 长度不合法时返回协议错误帧。
@@ -74,7 +74,7 @@ SHOT
 `STATUS?` 响应格式示例：
 
 ```text
-OK STATUS MEAS=50.00Hz PWM=50Hz REPORT=ON DAC_MODE=SINGLE DAC_FREQ=50Hz DAC_AMP=1500 DAC_PHASE=0 VRMS=220.12 IRMS=1.234 ILK=0.005 P=220.1 S=271.5 PF=0.810
+OK STATUS MEAS=50.00Hz PWM=50Hz REPORT=ON DAC_MODE=SINGLE DAC_FREQ1=50Hz DAC_FREQ2=50Hz DAC_AMP1=1500 DAC_AMP2=1500 DAC_PHASE1=0 DAC_PHASE2=0 VRMS=220.12 IRMS=1.234 ILK=0.005 P=220.1 S=271.5 PF=0.810
 ```
 
 `STATUS?` 命令帧示例，`SEQ=0x2A`：
@@ -116,9 +116,9 @@ serial_cmd /dev/cu.usbserial-10 "REPORT OFF"
 
 # DAC 参数设置
 serial_cmd /dev/cu.usbserial-10 "DAC SET MODE DUAL"
-serial_cmd /dev/cu.usbserial-10 "DAC SET FREQ 80"
-serial_cmd /dev/cu.usbserial-10 "DAC SET AMP 1900"
-serial_cmd /dev/cu.usbserial-10 "DAC SET PHASE 180"
+serial_cmd /dev/cu.usbserial-10 "DAC SET CH1 FREQ 80"
+serial_cmd /dev/cu.usbserial-10 "DAC SET CH1 AMP 1900"
+serial_cmd /dev/cu.usbserial-10 "DAC SET CH2 PHASE 180"
 ```
 
 `REPORT ON` 发送后会自动进入 5 秒监听，显示后续自动上报内容。
