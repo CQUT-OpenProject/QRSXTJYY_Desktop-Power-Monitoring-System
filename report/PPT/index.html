@@ -240,7 +240,7 @@
             <tr><th>字段</th><th>长度</th><th>说明</th></tr>
             <tr><td>SOF</td><td>2B</td><td>固定 0xA5 0x5A</td></tr>
             <tr><td>VERSION</td><td>1B</td><td>0x01</td></tr>
-            <tr><td>TYPE</td><td>1B</td><td>01 命令 / 81 响应 / 82 事件 / 83 错误</td></tr>
+            <tr><td>TYPE</td><td>1B</td><td>01 命令 / 81 响应 / 82 事件 / 83 错误 / 84 截图</td></tr>
             <tr><td>SEQ</td><td>1B</td><td>帧序号</td></tr>
             <tr><td>LEN</td><td>2B</td><td>Payload 长度（小端, ≤512）</td></tr>
             <tr><td>PAYLOAD</td><td>LEN</td><td>文本指令 (ASCII)</td></tr>
@@ -253,14 +253,14 @@
         <div class="chrome-min"><div class="l">COMMAND SET</div><div class="r">app_command.c</div></div>
         <span class="t-meta" style="color:var(--text-secondary);margin-bottom:.8vh">支持的命令集</span>
 <pre><code class="language-bash">── 查询类 ──
-HELP?          → 列出所有命令
+HELP           → 列出所有命令
 STATUS?        → 全量电参量快照
 REPORT ON/OFF  → 开关自动上报(~1s)
 
 ── 控制类 ──
 PWM SET &lt;freq&gt;   → 设置 PWM 频率
-DAC SET &lt;ch/f/a/phi&gt; → DAC 参数
-DAC MODE SINGLE/DUAL → 单/双通道</code></pre>
+DAC SET MODE SINGLE|DUAL → 单/双通道设置
+DAC SET CH1|CH2 FREQ|AMP|PHASE &lt;val&gt; → 通道独立设置</code></pre>
       </div>
     </div>
   </div>
