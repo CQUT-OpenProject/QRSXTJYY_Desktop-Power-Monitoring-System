@@ -10,7 +10,6 @@
 //!   serial_cmd /dev/tty.usbserial-110 "PWM SET 1000"
 //!   serial_cmd /dev/tty.usbserial-110 "REPORT ON"
 //!   serial_cmd /dev/tty.usbserial-110 "DAC SET MODE DUAL"
-//!   serial_cmd /dev/tty.usbserial-110 "CAL ZERO"
 //!   serial_cmd /dev/tty.usbserial-110 monitor
 
 use serial_cmd::protocol;

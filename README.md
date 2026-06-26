@@ -8,8 +8,8 @@
 - PA1 频率测量：PA1/TIM2_CH2 输入捕获测量外部频率，结果显示在 LCD 和 `STATUS?` 串口响应中。
 - DA 波形生成：PA4/PA5 双路 DAC 使用 TIM6 TRGO 触发，DMA2_CH3/CH4 循环输出 128 点正弦表。
 - DA 曲线显示：LCD 的 `DA Wave` 页面显示 DAC 模式、频率、幅值、相位，并绘制 CH1/CH2 两路曲线和坐标轴。
-- ADC 采样与电参数计算：PC0/PC3/PC2（ADC1_IN10/IN13/IN12）三通道模拟输入，TIM3 TRGO 以 6400 Hz 触发 ADC1 规则组扫描。DMA1_Channel1 循环搬运 384 半字，DMA TC 中断解交错到三个独立通道数组。Rust 定点数算法计算 Vrms、Irms、漏电流 Irms、有功功率、视在功率和功率因数。支持 CAL ZERO 调零命令。
-- USART1 协议：通过 PA9/PA10、115200 8N1 接收命令，支持状态查询、自动上报开关、PWM 和 DAC 参数设置、ADC 零偏移校准。
+- ADC 采样与电参数计算：PC0/PC3/PC2（ADC1_IN10/IN13/IN12）三通道模拟输入，TIM3 TRGO 以 6400 Hz 触发 ADC1 规则组扫描。DMA1_Channel1 循环搬运 384 半字，DMA TC 中断解交错到三个独立通道数组。Rust 定点数算法计算 Vrms、Irms、漏电流 Irms、有功功率、视在功率和功率因数。
+- USART1 协议：通过 PA9/PA10、115200 8N1 接收命令，支持状态查询、自动上报开关、PWM 和 DAC 参数设置。
 - 板级保护：启动时拉高 PC13、PA2、PA3 片选信号，避免触摸/W25Q64/SD 等共享外设误响应。
 
 LCD 主菜单包含四个页面：
@@ -55,18 +55,16 @@ DAC SET MODE SINGLE|DUAL
 DAC SET FREQ <hz>
 DAC SET AMP <code>
 DAC SET PHASE <deg>
-CAL ZERO
 SHOT
 ```
 
 说明：
 
-- `STATUS?` 返回 PA1 测频、PWM 频率、上报开关、DAC 模式/频率/幅值/相位、以及 ADC 电参数（Vrms/Irms/漏电流/有功功率/视在功率/功率因数/校准状态）。
+- `STATUS?` 返回 PA1 测频、PWM 频率、上报开关、DAC 模式/频率/幅值/相位、以及 ADC 电参数（Vrms/Irms/漏电流/有功功率/视在功率/功率因数）。
 - `HELP` 会返回多条 `TYPE=0x81` 响应帧，每条响应帧使用同一个 `SEQ`。
 - `DAC SET MODE SINGLE` 时，CH1 输出正弦波，CH2 保持 DAC 中点电压。
 - `DAC SET MODE DUAL` 时，CH1/CH2 输出同频同幅正弦波，CH2 相对 CH1 使用 `DAC SET PHASE` 指定相位差。
 - `DAC SET FREQ` 当前限制在 1..1000 Hz，`DAC SET AMP` 当前限制到安全码值范围内。
-- `CAL ZERO` 对当前 ADC 三通道各 128 点求算术平均值作为 DC 偏移补偿值，后续电参数计算时自动扣除。校准状态会显示在 `STATUS?` 响应和 LCD 页面中。
 - `SHOT` 是调试辅助命令（不在 `HELP` 列表中）：设备把当前 LCD 画面按 RLE 十六进制文本经 `TYPE=0x84` 帧分块上传，由上位机 `shot` 工具重建为 PNG。
 - 设备启动后会主动发送 `TYPE=0x82, SEQ=0, PAYLOAD="OK COURSE1 READY"`。
 - CRC 错误、帧不完整或 SOF 噪声会被静默丢弃；版本、类型或 payload 长度不合法时返回协议错误帧。
@@ -74,7 +72,7 @@ SHOT
 `STATUS?` 响应格式示例：
 
 ```text
-OK STATUS MEAS=50.00Hz PWM=50Hz REPORT=ON DAC_MODE=SINGLE DAC_FREQ=50Hz DAC_AMP=1500 DAC_PHASE=0 VRMS=220.12 IRMS=1.234 ILK=0.005 P=220.1 S=271.5 PF=0.810 CAL=YES
+OK STATUS MEAS=50.00Hz PWM=50Hz REPORT=ON DAC_MODE=SINGLE DAC_FREQ=50Hz DAC_AMP=1500 DAC_PHASE=0 VRMS=220.12 IRMS=1.234 ILK=0.005 P=220.1 S=271.5 PF=0.810
 ```
 
 `STATUS?` 命令帧示例，`SEQ=0x2A`：
@@ -119,9 +117,6 @@ serial_cmd /dev/cu.usbserial-10 "DAC SET MODE DUAL"
 serial_cmd /dev/cu.usbserial-10 "DAC SET FREQ 80"
 serial_cmd /dev/cu.usbserial-10 "DAC SET AMP 1900"
 serial_cmd /dev/cu.usbserial-10 "DAC SET PHASE 180"
-
-# ADC 零偏移校准
-serial_cmd /dev/cu.usbserial-10 "CAL ZERO"
 ```
 
 `REPORT ON` 发送后会自动进入 5 秒监听，显示后续自动上报内容。

@@ -95,13 +95,4 @@ const app_electrical_params_t *app_adc_get_params(void);
  */
 const uint16_t *app_adc_get_samples(uint8_t channel);
 
-/**
- * @brief 执行零偏移校准。
- *
- * 用显示帧（稳定快照）各 128 点的算术平均值更新内部 DC 偏移补偿值。
- * 基于显示帧而非 ISR 缓冲，不受 DMA 中断写入干扰。
- * 实物流调零时通过 CAL ZERO 串口命令触发。
- */
-void app_adc_calibrate_zero(void);
-
 #endif

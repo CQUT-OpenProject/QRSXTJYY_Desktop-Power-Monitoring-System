@@ -6,18 +6,13 @@
  *   第一层  DMA HT/TC 中断 → deinterleave_frame() 写 ISR 双缓冲 s_adc_frame[2]
  *   第二层  主循环 app_adc_task() 极短临界区取 ready idx → 整帧复制到工作帧
  *           → 调用 Rust 算法 → 复制到显示帧
- *   第三层  app_adc_get_samples() / app_adc_calibrate_zero() 统一读显示帧
+ *   第三层  app_adc_get_samples() 统一读显示帧
  *
  * 硬件链路：
  *   TIM3 (6400 Hz TRGO) → ADC1 扫描 PC0/PC3/PC2
  *   → DMA1_Channel1 循环搬运 2×384 半字到 s_dma_buffer
  *   → DMA HT 中断：解交错前半帧；TC 中断：解交错后半帧
  *   → app_adc_task() (主循环中)：临界区取帧号 → 工作帧 → Rust 算法 → 显示帧
- *
- * 校准链路：
- *   CAL ZERO 命令 → app_adc_calibrate_zero()
- *   → 取显示帧各 128 点算术平均 → 写入 s_zero_*
- *   → Rust 函数在下次调用时使用这些 DC 偏移值
  */
 #include "app_adc.h"
 #include "rust_algos.h"
@@ -68,7 +63,7 @@ static volatile uint8_t s_adc_ready;
 /** 主循环工作帧：从 ready 帧复制，用于 Rust 计算。 */
 static app_adc_frame_t s_adc_work_frame;
 
-/** 显示帧：LCD、串口、CAL ZERO 统一读取的稳定快照。 */
+/** 显示帧：LCD、串口统一读取的稳定快照。 */
 static app_adc_frame_t s_adc_display_frame;
 
 /** Rust 算法库填充的电参数结果。 */
@@ -79,10 +74,8 @@ static uint16_t s_zero_v;
 static uint16_t s_zero_i;
 static uint16_t s_zero_ilk;
 
-/** 是否已执行过 CAL ZERO。 */
+/** 是否已执行过校准。 */
 static uint8_t s_zero_calibrated;
-
-/* ================================================================== */
 /* 定时器参数计算（与 app_dac.c 中 calc_timer_params 算法一致）       */
 /* ================================================================== */
 
@@ -232,7 +225,7 @@ void app_adc_init(void)
     DMA_Cmd(DMA1_Channel1, ENABLE);
     TIM_Cmd(TIM3, ENABLE);
 
-    /* --- 8. 校准与双缓冲初始化 --- */
+    /* --- 8. 双缓冲与校准初始化 --- */
     s_adc_write_idx   = 0U;
     s_adc_ready_idx   = 0U;
     s_adc_ready       = 0U;
@@ -299,9 +292,8 @@ void app_adc_dma1_ch1_irq_handler(void)
  * 流程：
  * 1. 极短临界区（关中断仅取 ready 帧编号）；
  * 2. 整帧复制到工作帧（临界区外，不阻塞中断）；
- * 3. 快照校准参数（避免 Rust 函数执行期间被 CAL ZERO 修改）；
- * 4. 调用 Rust 定点数算法库计算电参数；
- * 5. 更新显示帧快照，供 LCD/串口/CAL ZERO 安全读取。
+ * 3. 调用 Rust 定点数算法库计算电参数（固定扣除 1.65V 对应 ADC 中点偏置，即 2048 码值）；
+ * 4. 更新显示帧快照，供 LCD/串口安全读取。
  */
 uint8_t app_adc_task(void)
 {
@@ -320,7 +312,23 @@ uint8_t app_adc_task(void)
     /* 整帧复制到工作缓冲（不在临界区内，不占用栈） */
     s_adc_work_frame = s_adc_frame[ri];
 
-    /* 快照校准参数 */
+    /* 如果还未校准，且第一帧数据就绪，则自动执行校准 */
+    if (s_zero_calibrated == 0U) {
+        uint32_t sum_v = 0U;
+        uint32_t sum_i = 0U;
+        uint32_t sum_ilk = 0U;
+        uint16_t j;
+        for (j = 0U; j < APP_ADC_SAMPLES; j++) {
+            sum_v   += (uint32_t)s_adc_work_frame.v[j];
+            sum_i   += (uint32_t)s_adc_work_frame.i[j];
+            sum_ilk += (uint32_t)s_adc_work_frame.ilk[j];
+        }
+        s_zero_v   = (uint16_t)(sum_v   / APP_ADC_SAMPLES);
+        s_zero_i   = (uint16_t)(sum_i   / APP_ADC_SAMPLES);
+        s_zero_ilk = (uint16_t)(sum_ilk / APP_ADC_SAMPLES);
+        s_zero_calibrated = 1U;
+    }
+
     uint16_t cal_v    = s_zero_v;
     uint16_t cal_i    = s_zero_i;
     uint16_t cal_ilk  = s_zero_ilk;
@@ -370,30 +378,4 @@ const uint16_t *app_adc_get_samples(uint8_t channel)
         return s_adc_display_frame.ilk;
     }
     return (const uint16_t *)0;
-}
-
-/**
- * @brief 执行零偏移校准：取显示帧 128 点算术平均作为 DC 偏移。
- *
- * 基于 s_adc_display_frame（稳定快照），不受 ISR 写入干扰。
- * 在主循环上下文中调用（CAL ZERO 命令处理），非 ISR 上下文。
- */
-void app_adc_calibrate_zero(void)
-{
-    const app_adc_frame_t *f = &s_adc_display_frame;
-    uint32_t sum_v   = 0U;
-    uint32_t sum_i   = 0U;
-    uint32_t sum_ilk = 0U;
-    uint16_t j;
-
-    for (j = 0U; j < APP_ADC_SAMPLES; j++) {
-        sum_v   += (uint32_t)f->v[j];
-        sum_i   += (uint32_t)f->i[j];
-        sum_ilk += (uint32_t)f->ilk[j];
-    }
-
-    s_zero_v   = (uint16_t)(sum_v   / APP_ADC_SAMPLES);
-    s_zero_i   = (uint16_t)(sum_i   / APP_ADC_SAMPLES);
-    s_zero_ilk = (uint16_t)(sum_ilk / APP_ADC_SAMPLES);
-    s_zero_calibrated = 1U;
 }

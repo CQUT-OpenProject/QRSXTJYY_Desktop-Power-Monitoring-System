@@ -158,7 +158,6 @@ static void add_help(app_command_result_t *result)
     add_response(result, "OK CMD HELP, STATUS?, REPORT?");
     add_response(result, "OK CMD REPORT ON|OFF, PWM SET <hz>");
     add_response(result, "OK CMD DAC SET MODE|FREQ|AMP|PHASE <val>");
-    add_response(result, "OK CMD CAL ZERO");
 }
 
 /** 读取当前监控快照并追加 STATUS 响应行。 */
@@ -251,13 +250,7 @@ static void handle_dac_number(const char *value_text,
     }
 }
 
-/** 处理 CAL ZERO 命令：执行 ADC 零偏移校准。 */
-static void handle_cal_zero(app_command_result_t *result)
-{
-    app_adc_calibrate_zero();
-    result->monitor_changed = 1U;
-    add_response(result, "OK CAL ZERO DONE");
-}
+
 
 void app_command_init(void)
 {
@@ -318,8 +311,6 @@ void app_command_handle_line(const char *line, app_command_result_t *result)
         handle_dac_number(cmd + (sizeof("DAC SET AMP ") - 1U), result, 1U);
     } else if (starts_with_ci(cmd, "DAC SET PHASE ") != 0U) {
         handle_dac_number(cmd + (sizeof("DAC SET PHASE ") - 1U), result, 2U);
-    } else if (equals_ci(cmd, "CAL ZERO") != 0U) {
-        handle_cal_zero(result);
     } else if (equals_ci(cmd, "SHOT") != 0U) {
         app_screenshot_dump();
         add_response(result, "OK SHOT DONE");
