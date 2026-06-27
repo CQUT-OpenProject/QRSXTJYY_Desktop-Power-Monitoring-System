@@ -68,7 +68,7 @@ SHOT
 - `DAC SET MODE DUAL` 时，CH1/CH2 输出正弦波，CH2 相对 CH1 的相位差可通过 `DAC SET CH2 PHASE` 进行调整。
 - `DAC SET CH1|CH2 FREQ` 当前限制在 1..1000 Hz，`DAC SET CH1|CH2 AMP` 当前限制到安全码值范围内。
 - `SHOT` 是调试辅助命令（不在 `HELP` 列表中）：设备把当前 LCD 画面按 RLE 十六进制文本经 `TYPE=0x84` 帧分块上传，由上位机 `shot` 工具重建为 PNG。
-- 设备启动后会主动发送 `TYPE=0x82, SEQ=0, PAYLOAD="OK COURSE1 READY"`。
+- 设备启动后会主动发送 `TYPE=0x82, SEQ=0, PAYLOAD="OK DEVICE READY"`。
 - CRC 错误、帧不完整或 SOF 噪声会被静默丢弃；版本、类型或 payload 长度不合法时返回协议错误帧。
 
 `STATUS?` 响应格式示例：

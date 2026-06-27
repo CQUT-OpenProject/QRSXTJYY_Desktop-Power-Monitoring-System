@@ -15,7 +15,7 @@
  * @brief 初始化 USART1 协议收发通道。
  *
  * 配置 PA9(TX)/PA10(RX) GPIO、USART1 波特率和 RXNE 中断，
- * 在 USART 使能后发送 OK COURSE1 READY 事件帧。
+ * 在 USART 使能后发送 OK DEVICE READY 事件帧。
  */
 void app_protocol_init(void);
 

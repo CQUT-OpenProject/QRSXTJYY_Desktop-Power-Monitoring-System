@@ -333,7 +333,7 @@ static uint8_t rx_ring_take_overflow(void)
  * @brief 初始化 USART1 协议收发通道。
  *
  * 引脚：PA9(TX) 复用推挽输出，PA10(RX) 浮空输入。
- * 配置后发送 OK COURSE1 READY 事件帧。
+ * 配置后发送 OK DEVICE READY 事件帧。
  */
 void app_protocol_init(void)
 {
@@ -377,7 +377,7 @@ void app_protocol_init(void)
     parser_reset();
 
     USART_Cmd(USART1, ENABLE);
-    send_text_frame((uint8_t)APP_PROTOCOL_TYPE_EVENT, 0U, "OK COURSE1 READY");
+    send_text_frame((uint8_t)APP_PROTOCOL_TYPE_EVENT, 0U, "OK DEVICE READY");
 }
 
 /**
