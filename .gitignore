@@ -16,8 +16,10 @@ CLAUDE.md
 
 # LaTeX build artifacts
 report/LaTex/*
+!report/LaTex/figures/
+!report/LaTex/.latexmkrc
 !report/LaTex/main.tex
+!report/LaTex/main.pdf
 
 # PPT figures
-report/PPT/figures/
 report/PPT/README.md
